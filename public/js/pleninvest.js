@@ -444,11 +444,12 @@ function calcNetWorth() {
     valEl.textContent = fmt(nw);
     valEl.style.color = nw >= 0 ? 'var(--charcoal)' : 'var(--bad)';
   }
-  var lvl = nw < 0 ? '🔴 Perlu perhatian'
-    : nw < 50e6 ? '🟡 Membangun fondasi'
-    : nw < 200e6 ? '🟢 Fondasi terbentuk'
-    : nw < 1e9 ? '🌳 Mulai berbuah'
-    : '🏆 Berlimpah';
+  var lvl = nw < 0 ? '🔴 Defisit'
+    : nw < 10e6 ? '🌱 Level 1 — Benih'
+    : nw < 50e6 ? '🌿 Level 2 — Tunas'
+    : nw < 200e6 ? '🌳 Level 3 — Pohon Kecil'
+    : nw < 1e9 ? '🌳 Level 4 — Pohon Rindang'
+    : '🍎 Level 5 — Berbuah Lebat';
   var lvlEl = document.getElementById('nw-lvl');
   if (lvlEl) lvlEl.textContent = lvl;
   return nw;
@@ -1112,11 +1113,11 @@ function calcHealth() {
   healthScores = {sr:sr,dr:dr,emM:emM,lr:lr,tr:tr,sS:sS,dS:dS,eS:eS,lS:lS,tS:tS,total:total,inc:inc,exp:exp};
   
   var sn = document.getElementById('score-num'); if(sn) sn.textContent = total;
-  var grades = total>=90?['🌳 Berlimpah','Kondisi finansialmu luar biasa!','#1E4D2B','#fff']
-    :total>=75?['🌿 Sangat Sehat','Portofolio kuat dan berkelanjutan.','#3D8A55','#fff']
-    :total>=60?['🌱 Sehat','Kondisi baik, ada 1-2 area yang bisa diperkuat.','#6BAA7A','#fff']
-    :total>=45?['🍂 Cukup','Ada beberapa hal yang perlu perhatian.','#D4A843','#fff']
-    :total>=25?['⚠️ Perlu Perhatian','Kondisi perlu perbaikan. Mulai dari langkah kecil.','#D47373','#fff']
+  var grades = total>=85?['🍎 Berbuah Lebat','Kondisi finansialmu luar biasa!','#1E4D2B','#fff']
+    :total>=65?['🌳 Pohon Rindang','Portofolio kuat dan berkelanjutan.','#3D8A55','#fff']
+    :total>=45?['🌳 Pohon Kecil','Kondisi baik, ada beberapa area yang bisa diperkuat.','#6BAA7A','#fff']
+    :total>=25?['🌿 Tunas','Mulai bertumbuh. Terus konsisten.','#D4A843','#fff']
+    :total>=10?['🌱 Benih','Baru memulai. Fokus pada fondasi.','#D47373','#fff']
     :['🪨 Kritis','Prioritas utama: stabilisasi keuangan.','#B84040','#fff'];
   
   var badge = document.getElementById('score-badge');
@@ -1179,10 +1180,10 @@ function updateLevelDisplay() {
   var title, desc, equiv;
   if (nw < 0) { title='🔴 Level 0 — Defisit'; desc='Utang melebihi aset. Fokus kurangi utang dan stabilkan arus kas.'; equiv='Prioritas: lunasi utang sebelum investasi apapun'; }
   else if (nw < 10e6) { title='🌱 Level 1 — Benih'; desc='Awal yang baik! Bangun dana darurat minimal 3 bulan pengeluaran.'; equiv='Setara: Mahasiswa baru mulai menabung'; }
-  else if (nw < 50e6) { title='🌿 Level 2 — Tumbuh'; desc='Fondasi mulai terbentuk. Terus bangun dana darurat hingga 6 bulan.'; equiv='Setara: Motor baru + dana darurat awal'; }
-  else if (nw < 200e6) { title='🌳 Level 3 — Berakar'; desc='Kondisi sehat! Saatnya mulai diversifikasi investasi.'; equiv='Setara: Dana darurat lengkap + mulai investasi'; }
-  else if (nw < 1e9) { title='🏡 Level 4 — Berbuah'; desc='Luar biasa! Pertimbangkan perencanaan warisan dan asuransi jiwa.'; equiv='Setara: Bisa DP rumah + mulai dana warisan'; }
-  else { title='🏆 Level 5 — Berlimpah'; desc='Keuangan sangat sehat. Fokus pada dampak sosial dan pelayanan.'; equiv='Setara: Bebas finansial, fokus melayani'; }
+  else if (nw < 50e6) { title='🌿 Level 2 — Tunas'; desc='Fondasi mulai terbentuk. Terus bangun dana darurat hingga 6 bulan.'; equiv='Setara: Motor baru + dana darurat awal'; }
+  else if (nw < 200e6) { title='🌳 Level 3 — Pohon Kecil'; desc='Kondisi sehat! Saatnya mulai diversifikasi investasi.'; equiv='Setara: Dana darurat lengkap + mulai investasi'; }
+  else if (nw < 1e9) { title='🌳 Level 4 — Pohon Rindang'; desc='Luar biasa! Pertimbangkan perencanaan warisan dan asuransi jiwa.'; equiv='Setara: Bisa DP rumah + mulai dana warisan'; }
+  else { title='🍎 Level 5 — Berbuah Lebat'; desc='Keuangan sangat sehat. Fokus pada dampak sosial dan pelayanan.'; equiv='Setara: Bebas finansial, fokus melayani'; }
   var el = document.getElementById('level-title'); if(el) el.textContent = title;
   var el2 = document.getElementById('level-desc'); if(el2) el2.textContent = desc;
   var el3 = document.getElementById('level-equiv'); if(el3) el3.textContent = '📍 ' + equiv;
@@ -1384,7 +1385,7 @@ function renderHealthCharts() {
 var Garden = function(canvas) {
   this.c = canvas;
   this.ctx = canvas.getContext('2d');
-  this.score = 50; this.t = 0; this.particles = [];
+  this.score = 0; this.t = 0; this.particles = [];
   this.w = canvas.offsetWidth || 400;
   this.h = canvas.offsetHeight || 200;
   this.resize();
@@ -1428,57 +1429,71 @@ Garden.prototype.addParticle = function() {
 
 Garden.prototype.drawTree = function(x, baseY, treeH, r, score, idx) {
   var c = this.ctx, t = this.t;
-  if (isNaN(score)) score = 50; // Default to neutral if NaN
+  if (isNaN(score)) score = 0;
+  
+  // Growth Level Mapping (1-5)
+  var level = 1;
+  var scale = 0.2; // Level 1 (Seed)
+  if (score >= 85) { level = 5; scale = 1.0; } // Level 5 (Fruiting)
+  else if (score >= 65) { level = 4; scale = 0.8; } // Level 4 (Large)
+  else if (score >= 45) { level = 3; scale = 0.6; } // Level 3 (Small Tree)
+  else if (score >= 25) { level = 2; scale = 0.4; } // Level 2 (Sprout)
+
+  var currentH = treeH * scale;
+  var currentR = r * scale;
   
   // Trunk color
   c.fillStyle = '#6B4226';
   
-  // Draw trunk - make it robust
-  var trunkW = Math.max(3, r * 0.2);
-  c.fillRect(x - trunkW/2, baseY - treeH * 0.8, trunkW, treeH * 0.8);
+  // Level 1: Seed / Benih (Just a small dot on the ground)
+  if (level === 1) {
+    c.beginPath();
+    c.ellipse(x, baseY - 2, 4, 3, 0, 0, Math.PI * 2);
+    c.fill();
+    return;
+  }
+
+  // Draw trunk
+  var trunkW = Math.max(2, currentR * 0.25);
+  c.fillRect(x - trunkW/2, baseY - currentH * 0.8, trunkW, currentH * 0.8);
   
-  if (score < 20) {
-    // Dead trees/Bare branches - make them thicker and more visible
-    c.strokeStyle='#5A4A2A'; 
-    c.lineWidth = Math.max(2, r * 0.05);
-    var branchHeight = baseY - treeH * 0.6;
-    [[x, branchHeight, x - r * 0.6, branchHeight - r * 0.5],
-     [x, branchHeight - r * 0.3, x + r * 0.5, branchHeight - r * 0.6]].forEach(function(l){
-        c.beginPath();
-        c.moveTo(l[0], l[1]);
-        c.lineTo(l[2], l[3]);
-        c.stroke();
-    });
+  if (level === 2) {
+    // Level 2: Sprout / Tunas (Tiny thin trunk + 2 leaves)
+    c.fillStyle = '#7DAA89';
+    var leafY = baseY - currentH * 0.8;
+    c.beginPath(); c.ellipse(x - 3, leafY, 5, 3, -0.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(x + 3, leafY, 5, 3, 0.5, 0, Math.PI * 2); c.fill();
   } else {
-    var sway = Math.sin(t * 0.8 + idx) * r * 0.02;
-    var topY = baseY - treeH;
-    var canopyCenterY = topY + r * 0.35;
+    // Levels 3, 4, 5: Trees
+    var sway = Math.sin(t * 0.8 + idx) * currentR * 0.02;
+    var topY = baseY - currentH;
+    var canopyCenterY = topY + currentR * 0.35;
     
     // Leaf color logic
     var leafColor;
-    if (score >= 80) leafColor = '#1E4D2B';
-    else if (score >= 60) leafColor = '#2D6A3F';
-    else if (score >= 40) leafColor = '#7DAA89';
-    else leafColor = '#D4A843'; // Yellowish/Stressed
+    if (score >= 85) leafColor = '#1E4D2B'; // Lush
+    else if (score >= 65) leafColor = '#2D6A3F'; // Healthy
+    else leafColor = '#7DAA89'; // Light
 
-    var grad = c.createRadialGradient(x + sway, canopyCenterY, r * 0.1, x + sway, canopyCenterY, r);
-    grad.addColorStop(0, score >= 60 ? '#4A8C5C' : '#E8C5B0');
+    var grad = c.createRadialGradient(x + sway, canopyCenterY, currentR * 0.1, x + sway, canopyCenterY, currentR);
+    grad.addColorStop(0, score >= 65 ? '#4A8C5C' : '#E8C5B0');
     grad.addColorStop(1, leafColor);
     
     c.fillStyle = grad;
     c.beginPath(); 
-    c.arc(x + sway, canopyCenterY, r, 0, Math.PI * 2); 
+    c.arc(x + sway, canopyCenterY, currentR, 0, Math.PI * 2); 
     c.fill();
     
-    // Blooming flowers
-    if (score >= 75) {
-      for (var fi = 0; fi < 5; fi++) {
-        var angle = (fi / 5) * Math.PI * 2 + t * 0.5;
-        var fx = x + sway + Math.cos(angle) * r * 0.6;
-        var fy = canopyCenterY + Math.sin(angle) * r * 0.5;
-        c.fillStyle = ['#FFB6C1', '#FFD700', '#FF8C69'][fi % 3];
+    // Level 5: Fruiting Tree (Maximum state)
+    if (level === 5) {
+      for (var fi = 0; fi < 6; fi++) {
+        var angle = (fi / 6) * Math.PI * 2 + t * 0.4;
+        var fx = x + sway + Math.cos(angle) * currentR * 0.7;
+        var fy = canopyCenterY + Math.sin(angle) * currentR * 0.6;
+        // Fruits
+        c.fillStyle = ['#FF4D4D', '#FFD700', '#FF8C69'][fi % 3];
         c.beginPath(); 
-        c.arc(fx, fy, 2.5, 0, Math.PI * 2); 
+        c.arc(fx, fy, 3, 0, Math.PI * 2); 
         c.fill();
       }
     }
@@ -1703,7 +1718,7 @@ function init() {
   var gardenCanvas = document.getElementById('garden-canvas');
   if (gardenCanvas) garden = new Garden(gardenCanvas);
   var heroCanvas = document.getElementById('hero-canvas');
-  if (heroCanvas) { heroGarden = new Garden(heroCanvas); heroGarden.setScore(65); }
+  if (heroCanvas) { heroGarden = new Garden(heroCanvas); heroGarden.setScore(0); }
 
   // Net Worth Fetch & Listeners
   fetch('/api/net-worth')

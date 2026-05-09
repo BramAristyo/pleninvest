@@ -48,7 +48,8 @@
               </div>
             </div>
           </div>
-          <div class="brand-garden-preview">
+          <div class="brand-garden-preview" style="position:relative">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:0.2;user-select:none">🌱</div>
             <canvas id="hero-canvas"></canvas>
           </div>
         </div>
@@ -74,6 +75,7 @@
       <!-- ===== BERANDA ===== -->
       <div class="section active" id="tab-beranda">
         <div id="garden-wrap">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:64px;opacity:0.3;user-select:none">🌱</div>
           <canvas id="garden-canvas"></canvas>
           <div class="garden-overlay">
             <div class="garden-score-badge">
