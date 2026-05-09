@@ -174,7 +174,7 @@ function loadData() {
   try {
     transactions = []; // Now fetched from backend API
     reimburse = JSON.parse(localStorage.getItem('plen_rmb') || '[]');
-    assets = JSON.parse(localStorage.getItem('plen_assets') || '[]');
+    assets = []; // Now fetched from backend API
     insurance = JSON.parse(localStorage.getItem('plen_ins') || '[]');
     tunjangan = JSON.parse(localStorage.getItem('plen_tnj') || '[]');
     cicilanEmas = JSON.parse(localStorage.getItem('plen_ce') || '[]');
@@ -184,9 +184,8 @@ function loadData() {
 
 function saveAll() {
   try {
-    // transactions are now stored in backend, no longer in localStorage
+    // transactions and assets are now stored in backend, no longer in localStorage
     localStorage.setItem('plen_rmb', JSON.stringify(reimburse));
-    localStorage.setItem('plen_assets', JSON.stringify(assets));
     localStorage.setItem('plen_ins', JSON.stringify(insurance));
     localStorage.setItem('plen_tnj', JSON.stringify(tunjangan));
     localStorage.setItem('plen_ce', JSON.stringify(cicilanEmas));
@@ -545,52 +544,121 @@ function addAsset() {
   var qty = parseFloat(document.getElementById('a-qty').value) || 1;
   var ticker = document.getElementById('a-ticker').value.trim().toUpperCase();
   var note = document.getElementById('a-note').value;
-  assets.push({ id: Date.now(), type: type, name: name, date: date, buyPrice: buyPrice, qty: qty, ticker: ticker, note: note, currentPrice: buyPrice });
-  saveAll(); renderAssets(); toggleAddAsset();
-  showGardenMsg('Aset baru ditambahkan ke portofolio!');
+
+  fetch('/api/investments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({
+      name: name,
+      type: type,
+      purchase_date: date,
+      buy_price: buyPrice,
+      quantity: qty,
+      ticker: ticker,
+      note: note
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderAssets();
+      toggleAddAsset();
+      showGardenMsg('Aset baru ditambahkan ke portofolio!');
+      // Reset form
+      if (document.getElementById('a-name')) document.getElementById('a-name').value = '';
+      if (document.getElementById('a-buy-price')) document.getElementById('a-buy-price').value = '';
+      if (document.getElementById('a-qty')) document.getElementById('a-qty').value = '1';
+      if (document.getElementById('a-ticker')) document.getElementById('a-ticker').value = '';
+      if (document.getElementById('a-note')) document.getElementById('a-note').value = '';
+    }
+  })
+  .catch(function(e) { console.error('Error adding asset:', e); });
 }
 
 function deleteAsset(id) {
-  assets = assets.filter(function(a) { return a.id !== id; });
-  saveAll(); renderAssets(); calcAll();
+  if (!confirm('Hapus aset ini?')) return;
+  fetch('/api/investments/' + id, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderAssets();
+    }
+  })
+  .catch(function(e) { console.error('Error deleting asset:', e); });
+}
+
+function updateInvestmentPrice(id, newPrice) {
+  fetch('/api/investments/' + id + '/price', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({ current_price: parseFloat(newPrice) })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderAssets();
+      showGardenMsg('Harga aset diperbarui!');
+    }
+  })
+  .catch(function(e) { console.error('Error updating price:', e); });
 }
 
 function renderAssets() {
-  var totalModal = 0, totalCurrent = 0;
-  var el = document.getElementById('asset-list');
-  if (!el) return;
-  if (!assets.length) {
-    el.innerHTML = '<div class="empty-state"><div class="ei">🌿</div>Belum ada aset. Tambahkan asetmu!</div>';
-    updateDiversStats(0, 0); return;
-  }
-  var html = '';
-  assets.forEach(function(a, i) {
-    var modal = a.buyPrice * a.qty;
-    var current = (a.currentPrice || a.buyPrice) * a.qty;
-    var pl = current - modal;
-    var plPct = modal > 0 ? (pl/modal*100).toFixed(1) : '0.0';
-    totalModal += modal; totalCurrent += current;
-    var plColor = pl >= 0 ? 'var(--good)' : 'var(--bad)';
-    var plSign = pl >= 0 ? '+' : '';
-    var icon = ASSET_ICONS[a.type] || '📦';
-    var bg = ASSET_COLORS[i % ASSET_COLORS.length] + '22';
-    html += '<div class="asset-row">'
-      + '<div class="asset-icon" style="background:' + bg + '">' + icon + '</div>'
-      + '<div><div class="asset-name">' + a.name + '</div>'
-      + '<div class="asset-sub">' + a.qty + ' unit · Beli: ' + fmtS(a.buyPrice) + ' · ' + fmtDate(a.date) + '</div></div>'
-      + '<div><div class="asset-current">' + fmtS(current) + '</div>'
-      + '<div class="asset-sub">Harga kini: ' + fmtS(a.currentPrice||a.buyPrice) + '</div></div>'
-      + '<div><div class="asset-pl ' + (pl>=0?'pos':'neg') + '">' + plSign + fmtS(pl) + ' (' + plPct + '%)</div></div>'
-      + '<button class="del-btn" onclick="deleteAsset(' + a.id + ')">&#215;</button>'
-      + '</div>';
-  });
-  el.innerHTML = html;
-  updateDiversStats(totalModal, totalCurrent);
+  fetch('/api/investments')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = data.investments;
+      var stats = data.stats;
+      assets = list;
+
+      updateDiversStats(stats.total_modal, stats.total_current, stats.pl, stats.return_pct);
+
+      var el = document.getElementById('asset-list');
+      if (!el) return;
+      if (!list.length) {
+        el.innerHTML = '<div class="empty-state"><div class="ei">🌿</div>Belum ada aset. Tambahkan asetmu!</div>';
+        return;
+      }
+      var html = '';
+      list.forEach(function(a, i) {
+        var modal = a.buy_price * a.quantity;
+        var current = a.current_price * a.quantity;
+        var pl = current - modal;
+        var plPct = modal > 0 ? (pl/modal*100).toFixed(1) : '0.0';
+        var plSign = pl >= 0 ? '+' : '';
+        var icon = ASSET_ICONS[a.type] || '📦';
+        var bg = ASSET_COLORS[i % ASSET_COLORS.length] + '22';
+        html += '<div class="asset-row">'
+          + '<div class="asset-icon" style="background:' + bg + '">' + icon + '</div>'
+          + '<div><div class="asset-name">' + a.name + '</div>'
+          + '<div class="asset-sub">' + a.quantity + ' unit · Beli: ' + fmtS(a.buy_price) + ' · ' + fmtDate(a.purchase_date) + '</div></div>'
+          + '<div><div class="asset-current">' + fmtS(current) + '</div>'
+          + '<div class="asset-sub" style="display:flex;align-items:center;gap:4px">Harga kini: ' 
+          + '<input type="number" value="' + a.current_price + '" id="price-inv-' + a.id + '" style="width:70px;background:rgba(30, 77, 43, 0.7);border:1px solid rgba(255,255,255,0.2);border-radius:4px;color:white;font-size:10px;padding:2px 4px;">'
+          + '<button onclick="updateInvestmentPrice(' + a.id + ', document.getElementById(\'price-inv-' + a.id + '\').value)" style="background:var(--sage);color:white;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px">✓</button>'
+          + '</div></div>'
+          + '<div><div class="asset-pl ' + (pl>=0?'pos':'neg') + '">' + plSign + fmtS(pl) + ' (' + plPct + '%)</div></div>'
+          + '<button class="del-btn" onclick="deleteAsset(' + a.id + ')">&#215;</button>'
+          + '</div>';
+      });
+      el.innerHTML = html;
+      updateBerandaStats();
+    })
+    .catch(function(e) { console.error('Error fetching investments:', e); });
 }
 
-function updateDiversStats(modal, current) {
-  var pl = current - modal;
-  var ret = modal > 0 ? (pl/modal*100).toFixed(1) : '0.0';
+function updateDiversStats(modal, current, pl, ret) {
   var dTotal = document.getElementById('d-total'); if(dTotal) dTotal.textContent = fmtS(current);
   var dModal = document.getElementById('d-modal'); if(dModal) dModal.textContent = fmtS(modal);
   var plEl = document.getElementById('d-pl');
@@ -780,17 +848,8 @@ function toggleHistorical() {
 
 // ——— REAL-TIME PRICES ———
 function fetchAllPrices() {
-  var lu = document.getElementById('last-update'); if(lu) lu.textContent = 'Memperbarui...';
-  var usdIdr = 15800;
-  fetch('https://open.er-api.com/v6/latest/USD')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.rates && data.rates.IDR) usdIdr = data.rates.IDR;
-      priceCache['USD'] = usdIdr;
-      priceCache['EUR'] = data.rates ? usdIdr / data.rates.EUR : usdIdr * 1.08;
-      priceCache['SGD'] = data.rates ? usdIdr / data.rates.SGD : usdIdr * 0.74;
-      updateAssetPrices(usdIdr);
-    }).catch(function() { updateAssetPrices(usdIdr); });
+  // Manual price updates enabled, automatic fetching disabled.
+  console.log('fetchAllPrices is disabled. Use manual price updates.');
 }
 
 function updateAssetPrices(usdIdr) {
@@ -830,12 +889,12 @@ function getAIReco() {
   if (!panel) return;
   panel.innerHTML = '<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:6px">Claude sedang menganalisis portofoliomu...</span></div>';
   var portfolioSummary = assets.map(function(a) {
-    return { jenis: a.type, nama: a.name, modal: a.buyPrice * a.qty, current: (a.currentPrice||a.buyPrice) * a.qty, plPct: a.buyPrice > 0 ? ((a.currentPrice||a.buyPrice)-a.buyPrice)/a.buyPrice*100 : 0 };
+    return { jenis: a.type, nama: a.name, modal: a.buy_price * a.quantity, current: a.current_price * a.quantity, plPct: a.buy_price > 0 ? (a.current_price-a.buy_price)/a.buy_price*100 : 0 };
   });
   fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: 'Kamu adalah penasihat keuangan untuk Ricky Atmoko, calon pendeta GKI usia 25 tahun di Indonesia. Berikan saran diversifikasi berdasarkan portofolio: ' + JSON.stringify(portfolioSummary) + '. Berikan: ringkasan kondisi (1-2 kalimat), saran per aset (tahan/jual/tambah), rekomendasi diversifikasi ke depan, dan 1 kalimat penyemangat pastoral. Max 200 kata, bahasa Indonesia, bullet point untuk saran aset.' }] })
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: 'Kamu adalah penasihat keuangan untuk Ricky Atmoko, calon pendeta GKI usia 25 tahun di Indonesia. Berikan saran diversifikasi berdasarkan portofolio: ' + JSON.stringify(portfolioSummary) + '. Berikan: ringkasan kondisi (1-2 kalimat), saran per aset (tahan/jual/tambah), rekomendasi diversifikasi ke depan, dan 1 kalimat penyemangat pastoral. Max 200 kata, bahasa Indonesia, bullet point for saran aset.' }] })
   }).then(function(r) { return r.json(); })
     .then(function(data) {
       var text = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Tidak bisa mendapatkan rekomendasi saat ini.';
@@ -950,7 +1009,7 @@ function updateBerandaStats() {
     bEl.textContent = fmtS(Math.abs(bal));
     bEl.style.color = bal >= 0 ? 'var(--good)' : 'var(--bad)';
   }
-  var totalPort = assets.reduce(function(s,a) { return s + (a.currentPrice||a.buyPrice)*a.qty; }, 0);
+  var totalPort = assets.reduce(function(s,a) { return s + (a.current_price || a.buy_price || 0) * (a.quantity || 0); }, 0);
   var bPort = document.getElementById('b-port'); if(bPort) bPort.textContent = fmtS(totalPort);
   var pend = reimburse.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s+r.amount; }, 0);
   var bRmb = document.getElementById('b-rmb'); if(bRmb) bRmb.textContent = fmtS(pend);
@@ -1036,7 +1095,7 @@ function renderCharts() {
   if (legEl) legEl.innerHTML = eCats.map(function(c,i){return '<div class="legend-item"><div class="legend-dot" style="background:'+PALETTE[i%PALETTE.length]+'"></div>'+c+'</div>';}).join('');
 
   var assetByCat = {};
-  assets.forEach(function(a){var v=(a.currentPrice||a.buyPrice)*a.qty;assetByCat[a.type]=(assetByCat[a.type]||0)+v;});
+  assets.forEach(function(a){var v=(a.current_price || a.buy_price || 0)*a.quantity;assetByCat[a.type]=(assetByCat[a.type]||0)+v;});
   var aCats=Object.keys(assetByCat), aVals=aCats.map(function(c){return assetByCat[c];});
   var totalAsset=aVals.reduce(function(a,b){return a+b;},0);
   var dAssetTotal = document.getElementById('dnut-asset-total'); if(dAssetTotal) dAssetTotal.textContent = fmtS(totalAsset||0);

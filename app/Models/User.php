@@ -38,4 +38,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(NetWorth::class);
     }
+
+    /**
+     * Get the investments for the user.
+     */
+    public function investments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Investment::class);
+    }
 }
