@@ -204,6 +204,32 @@ function fmtDate(dStr) {
   return d.getDate() + ' ' + MONTHS_S[d.getMonth()] + ' ' + d.getFullYear();
 }
 
+// ——— MONEY INPUT FORMATTING ———
+function formatMoneyInput(el) {
+  var val = el.value.replace(/\D/g, "");
+  if (!val) {
+    el.value = "";
+    return;
+  }
+  el.value = parseInt(val).toLocaleString("id-ID");
+}
+
+function getRawValue(idOrEl) {
+  var el = typeof idOrEl === "string" ? document.getElementById(idOrEl) : idOrEl;
+  if (!el) return 0;
+  return parseFloat(el.value.replace(/\./g, "")) || 0;
+}
+
+function initMoneyInputs() {
+  document.querySelectorAll(".money-input").forEach(function(el) {
+    el.addEventListener("input", function() {
+      formatMoneyInput(this);
+    });
+    // Format initial values
+    if (el.value) formatMoneyInput(el);
+  });
+}
+
 // ——— CATEGORIES ———
 var CAT_INCOME  = ['Gaji Pastoral','Honorarium','Persembahan / Natura','Tunjangan','Klaim Asuransi','Investasi Return','Lain-lain Pemasukan'];
 var CAT_EXPENSE = ['Kebutuhan Pokok','Transportasi','Kesehatan','Pendidikan / Buku','Tabungan','Dana Darurat','Persepuluhan','Pelayanan','Pakaian','Hiburan','Lain-lain'];
@@ -250,7 +276,7 @@ function addTransaction() {
   var type = document.getElementById('txn-type').value;
   var cat  = document.getElementById('txn-cat').value;
   var note = document.getElementById('txn-note').value;
-  var amount = parseFloat(document.getElementById('txn-amount').value);
+  var amount = getRawValue('txn-amount');
   var benefit = document.getElementById('txn-benefit').value;
   var benefitNote = document.getElementById('txn-benefit-note') ? document.getElementById('txn-benefit-note').value : '';
   if (!date || !amount || amount <= 0) { alert('Lengkapi tanggal dan nominal ya'); return; }
@@ -353,19 +379,35 @@ function renderTransactions() {
 }
 
 function autoFillHealthInputs(stats) {
-    var hInc = document.getElementById('h-inc'); if(hInc) hInc.value = stats.income;
-    var hExp = document.getElementById('h-exp'); if(hExp) hExp.value = stats.expense;
+    var hInc = document.getElementById('h-inc'); 
+    if(hInc) { 
+        hInc.value = stats.income;
+        formatMoneyInput(hInc);
+    }
+    var hExp = document.getElementById('h-exp'); 
+    if(hExp) { 
+        hExp.value = stats.expense;
+        formatMoneyInput(hExp);
+    }
     
     var cm = curM();
     var monthlyTabungan = transactions.filter(function(t) { 
         return t.date.startsWith(cm) && t.category === 'Tabungan'; 
     }).reduce(function(s, t) { return s + parseFloat(t.amount); }, 0);
-    var hSav = document.getElementById('h-sav'); if(hSav) hSav.value = monthlyTabungan;
+    var hSav = document.getElementById('h-sav'); 
+    if(hSav) { 
+        hSav.value = monthlyTabungan;
+        formatMoneyInput(hSav);
+    }
 
     var monthlyTth = transactions.filter(function(t) { 
         return t.date.startsWith(cm) && t.category === 'Persepuluhan'; 
     }).reduce(function(s, t) { return s + parseFloat(t.amount); }, 0);
-    var hTth = document.getElementById('h-tth'); if(hTth) hTth.value = monthlyTth;
+    var hTth = document.getElementById('h-tth'); 
+    if(hTth) { 
+        hTth.value = monthlyTth;
+        formatMoneyInput(hTth);
+    }
 
     calcHealth();
 }
@@ -376,11 +418,11 @@ function syncNetWorth() {
   clearTimeout(nwTimer);
   nwTimer = setTimeout(function() {
     var payload = {
-      savings: parseFloat(document.getElementById('nw-sav').value) || 0,
-      emergency_fund: parseFloat(document.getElementById('nw-em').value) || 0,
-      investments: parseFloat(document.getElementById('nw-inv').value) || 0,
-      other_assets: parseFloat(document.getElementById('nw-oth').value) || 0,
-      debt: parseFloat(document.getElementById('nw-dbt').value) || 0
+      savings: getRawValue('nw-sav'),
+      emergency_fund: getRawValue('nw-em'),
+      investments: getRawValue('nw-inv'),
+      other_assets: getRawValue('nw-oth'),
+      debt: getRawValue('nw-dbt')
     };
     fetch('/api/net-worth', {
       method: 'POST',
@@ -394,12 +436,8 @@ function syncNetWorth() {
 }
 
 function calcNetWorth() {
-  function v(id) { 
-      var el = document.getElementById(id);
-      return el ? (parseFloat(el.value) || 0) : 0; 
-  }
-  var total = v('nw-sav') + v('nw-em') + v('nw-inv') + v('nw-oth');
-  var debt = v('nw-dbt');
+  var total = getRawValue('nw-sav') + getRawValue('nw-em') + getRawValue('nw-inv') + getRawValue('nw-oth');
+  var debt = getRawValue('nw-dbt');
   var nw = total - debt;
   var valEl = document.getElementById('nw-val');
   if (valEl) {
@@ -420,7 +458,7 @@ function calcNetWorth() {
 function addReimburse() {
   var date = document.getElementById('r-date').value;
   var cat = document.getElementById('r-cat').value;
-  var amount = parseFloat(document.getElementById('r-amount').value);
+  var amount = getRawValue('r-amount');
   var note = document.getElementById('r-note').value;
   var status = document.getElementById('r-status').value;
   if (!date || !amount) { alert('Lengkapi tanggal dan nominal'); return; }
@@ -543,7 +581,7 @@ function renderReimburse() {
 function addInsurance() {
   var name = document.getElementById('ins-name').value;
   var type = document.getElementById('ins-type').value;
-  var premium = parseFloat(document.getElementById('ins-premium').value) || 0;
+  var premium = getRawValue('ins-premium');
   var due = document.getElementById('ins-due').value;
   var coverage = document.getElementById('ins-coverage').value;
   if (!name) { alert('Isi nama asuransi'); return; }
@@ -625,7 +663,7 @@ function renderInsurance() {
 function addTunjangan() {
   var name = document.getElementById('tnj-name').value;
   var type = document.getElementById('tnj-type').value;
-  var amount = parseFloat(document.getElementById('tnj-amount').value) || 0;
+  var amount = getRawValue('tnj-amount');
   var note = document.getElementById('tnj-note').value;
   if (!name) { alert('Isi nama tunjangan'); return; }
 
@@ -710,7 +748,7 @@ function addAsset() {
   var type = document.getElementById('a-type').value;
   var name = document.getElementById('a-name').value || type;
   var date = document.getElementById('a-date').value;
-  var buyPrice = parseFloat(document.getElementById('a-buy-price').value) || 0;
+  var buyPrice = getRawValue('a-buy-price');
   var qty = parseFloat(document.getElementById('a-qty').value) || 1;
   var ticker = document.getElementById('a-ticker').value.trim().toUpperCase();
   var note = document.getElementById('a-note').value;
@@ -853,9 +891,9 @@ function addCicilanEmas() {
   var name = document.getElementById('ce-name').value || 'Emas';
   var start = document.getElementById('ce-start').value;
   var gram = parseFloat(document.getElementById('ce-gram').value) || 0;
-  var pricePerGram = parseFloat(document.getElementById('ce-price-gram').value) || 0;
-  var dp = parseFloat(document.getElementById('ce-dp').value) || 0;
-  var monthly = parseFloat(document.getElementById('ce-monthly').value) || 0;
+  var pricePerGram = getRawValue('ce-price-gram');
+  var dp = getRawValue('ce-dp');
+  var monthly = getRawValue('ce-monthly');
   var duration = parseInt(document.getElementById('ce-duration').value) || 12;
   var paid = parseInt(document.getElementById('ce-paid-input').value) || 0;
   var note = document.getElementById('ce-note').value;
@@ -1050,11 +1088,7 @@ function getAIReco() {
 var healthScores = {};
 
 function calcHealth() {
-  function v(id) { 
-      var el = document.getElementById(id);
-      return el ? (parseFloat(el.value) || 0) : 0; 
-  }
-  var inc=v('h-inc'), exp=v('h-exp'), sav=v('h-sav'), dbt=v('h-dbt'), em=v('h-em'), tth=v('h-tth');
+  var inc=getRawValue('h-inc'), exp=getRawValue('h-exp'), sav=getRawValue('h-sav'), dbt=getRawValue('h-dbt'), em=getRawValue('h-em'), tth=getRawValue('h-tth');
   if (!inc) {
       // If we have no income data, don't update garden score yet to avoid 'dead' garden 
       // unless we specifically want to show level 0.
@@ -1605,6 +1639,7 @@ function switchTab(name, btn) {
 // ——— INIT ———
 function init() {
   loadData();
+  initMoneyInputs();
   var txnDate = document.getElementById('txn-date'); if(txnDate) txnDate.valueAsDate = new Date();
   var rDate = document.getElementById('r-date'); if(rDate) rDate.valueAsDate = new Date();
   var aDate = document.getElementById('a-date'); if(aDate) aDate.valueAsDate = new Date();
@@ -1625,17 +1660,28 @@ function init() {
     .then(function(data) {
       if (data && data.netWorth) {
         var nw = data.netWorth;
-        if (document.getElementById('nw-sav')) document.getElementById('nw-sav').value = nw.savings || 0;
-        if (document.getElementById('nw-em')) document.getElementById('nw-em').value = nw.emergency_fund || 0;
-        if (document.getElementById('nw-inv')) document.getElementById('nw-inv').value = nw.investments || 0;
-        if (document.getElementById('nw-oth')) document.getElementById('nw-oth').value = nw.other_assets || 0;
-        if (document.getElementById('nw-dbt')) document.getElementById('nw-dbt').value = nw.debt || 0;
+        var fields = {
+            'nw-sav': nw.savings,
+            'nw-em': nw.emergency_fund,
+            'nw-inv': nw.investments,
+            'nw-oth': nw.other_assets,
+            'nw-dbt': nw.debt,
+            'h-em': nw.emergency_fund
+        };
         
-        // Also fill health emergency fund & debt
-        if (document.getElementById('h-em')) document.getElementById('h-em').value = nw.emergency_fund || 0;
-        // h-dbt in health is usually monthly, but we fill total debt as fallback
-        if (document.getElementById('h-dbt') && !document.getElementById('h-dbt').value) {
-            document.getElementById('h-dbt').value = nw.debt || 0;
+        for (var id in fields) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.value = fields[id] || 0;
+                formatMoneyInput(el);
+            }
+        }
+        
+        // h-dbt in health is usually monthly, but we fill total debt as fallback if empty
+        var hDbt = document.getElementById('h-dbt');
+        if (hDbt && !hDbt.value) {
+            hDbt.value = nw.debt || 0;
+            formatMoneyInput(hDbt);
         }
 
         calcNetWorth();

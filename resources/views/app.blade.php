@@ -173,7 +173,7 @@
           </div>
           <div class="g2">
             <div class="field"><label>Nominal (Rp)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="txn-amount" placeholder="0" min="0"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="txn-amount" placeholder="0" class="money-input"></div>
             </div>
             <div class="field"><label>Tunjangan / Asuransi?</label>
               <select id="txn-benefit">
@@ -239,22 +239,21 @@
           <div class="card-sub">Update setiap 3 bulan. Ini gambaran keuanganmu yang sesungguhnya.</div>
           <div class="g2">
             <div class="field"><label>Tabungan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="nw-sav" placeholder="0" oninput="calcAll()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="nw-sav" placeholder="0" class="money-input" oninput="calcAll()"></div>
             </div>
             <div class="field"><label>Dana Darurat</label>
-              <div class="pre"><span>Rp</span><input type="number" id="nw-em" placeholder="0" oninput="calcAll()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="nw-em" placeholder="0" class="money-input" oninput="calcAll()"></div>
             </div>
             <div class="field"><label>Investasi/Reksadana</label>
-              <div class="pre"><span>Rp</span><input type="number" id="nw-inv" placeholder="0" oninput="calcAll()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="nw-inv" placeholder="0" class="money-input" oninput="calcAll()"></div>
             </div>
             <div class="field"><label>Aset Lain</label>
-              <div class="pre"><span>Rp</span><input type="number" id="nw-oth" placeholder="0" oninput="calcAll()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="nw-oth" placeholder="0" class="money-input" oninput="calcAll()"></div>
             </div>
             <div class="field"><label>Total Utang</label>
-              <div class="pre"><span>Rp</span><input type="number" id="nw-dbt" placeholder="0" oninput="calcAll()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="nw-dbt" placeholder="0" class="money-input" oninput="calcAll()"></div>
             </div>
-          </div>
-          <div
+          </div>          <div
             style="background:var(--sage-pale);border-radius:var(--radius-sm);padding:14px;display:flex;justify-content:space-between;align-items:center">
             <div>
               <div
@@ -321,7 +320,7 @@
           <div class="g2">
             <div class="field"><label>Tanggal Beli</label><input type="date" id="a-date" min="2000-10-01"></div>
             <div class="field"><label>Harga Beli (per unit / total)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="a-buy-price" placeholder="0"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="a-buy-price" placeholder="0" class="money-input"></div>
             </div>
           </div>
           <div class="g2">
@@ -389,10 +388,9 @@
           </div>
           <div class="g2">
             <div class="field"><label>Nominal (Rp)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="r-amount" placeholder="0"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="r-amount" placeholder="0" class="money-input"></div>
             </div>
-            <div class="field"><label>Keterangan</label><input type="text" id="r-note"
-                placeholder="Contoh: BBM ke kampus..."></div>
+            <div class="field"><label>Keterangan</label><input type="text" id="r-note" placeholder="Contoh: BBM ke kampus..."></div>
           </div>
           <div class="field"><label>Status</label>
             <select id="r-status">
@@ -465,7 +463,7 @@
           </div>
           <div class="g2">
             <div class="field"><label>Premi / Bulan (Rp)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="ins-premium" placeholder="0"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="ins-premium" placeholder="0" class="money-input"></div>
             </div>
             <div class="field"><label>Jatuh Tempo</label><input type="date" id="ins-due" min="2000-10-01"></div>
           </div>
@@ -492,7 +490,7 @@
           </div>
           <div class="g2">
             <div class="field"><label>Nominal / Bulan (Rp)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="tnj-amount" placeholder="0"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="tnj-amount" placeholder="0" class="money-input"></div>
             </div>
             <div class="field"><label>Keterangan</label><input type="text" id="tnj-note" placeholder="Catatan..."></div>
           </div>
@@ -534,18 +532,17 @@
               <div class="field"><label>Target Berat (gram)</label><input type="number" id="ce-gram" placeholder="2"
                   min="0.1" step="0.1"></div>
               <div class="field"><label>Harga Beli /gram saat itu (Rp)</label>
-                <div class="pre"><span>Rp</span><input type="number" id="ce-price-gram" placeholder="0"></div>
+                <div class="pre"><span>Rp</span><input type="text" id="ce-price-gram" placeholder="0" class="money-input"></div>
               </div>
             </div>
             <div class="g2">
               <div class="field"><label>Uang Muka / DP (Rp)</label>
-                <div class="pre"><span>Rp</span><input type="number" id="ce-dp" placeholder="0"></div>
+                <div class="pre"><span>Rp</span><input type="text" id="ce-dp" placeholder="0" class="money-input"></div>
               </div>
               <div class="field"><label>Cicilan per Bulan (Rp)</label>
-                <div class="pre"><span>Rp</span><input type="number" id="ce-monthly" placeholder="0"></div>
+                <div class="pre"><span>Rp</span><input type="text" id="ce-monthly" placeholder="0" class="money-input"></div>
               </div>
-            </div>
-            <div class="g2">
+            </div>            <div class="g2">
               <div class="field"><label>Durasi (bulan)</label><input type="number" id="ce-duration" placeholder="12"
                   min="1"></div>
               <div class="field"><label>Sudah Dibayar (bulan ke-)</label><input type="number" id="ce-paid-input"
@@ -608,26 +605,33 @@
           <div class="card-title">📊 Input Data Keuangan Bulanan</div>
           <div class="g2">
             <div class="field"><label>Total Pemasukan / Bulan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-inc" placeholder="0" oninput="calcHealth()">
+              <div class="pre"><span>Rp</span><input type="text" id="h-inc" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
               </div>
             </div>
             <div class="field"><label>Total Pengeluaran / Bulan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-exp" placeholder="0" oninput="calcHealth()">
+              <div class="pre"><span>Rp</span><input type="text" id="h-exp" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
               </div>
             </div>
             <div class="field"><label>Tabungan / Bulan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-sav" placeholder="0" oninput="calcHealth()">
+              <div class="pre"><span>Rp</span><input type="text" id="h-sav" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
               </div>
             </div>
             <div class="field"><label>Cicilan Utang / Bulan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-dbt" placeholder="0" oninput="calcHealth()">
+              <div class="pre"><span>Rp</span><input type="text" id="h-dbt" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
               </div>
             </div>
             <div class="field"><label>Dana Darurat (total)</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-em" placeholder="0" oninput="calcHealth()"></div>
+              <div class="pre"><span>Rp</span><input type="text" id="h-em" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
+              </div>
             </div>
             <div class="field"><label>Persepuluhan / Persembahan</label>
-              <div class="pre"><span>Rp</span><input type="number" id="h-tth" placeholder="0" oninput="calcHealth()">
+              <div class="pre"><span>Rp</span><input type="text" id="h-tth" placeholder="0" class="money-input"
+                  oninput="calcHealth()">
               </div>
             </div>
           </div>
