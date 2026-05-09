@@ -20,11 +20,26 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/net-worth', [\App\Http\Controllers\NetWorthController::class, 'show']);
     Route::post('/api/net-worth', [\App\Http\Controllers\NetWorthController::class, 'update']);
 
-    // Investments
     Route::get('/api/investments', [\App\Http\Controllers\InvestmentController::class, 'index']);
     Route::post('/api/investments', [\App\Http\Controllers\InvestmentController::class, 'store']);
     Route::patch('/api/investments/{id}/price', [\App\Http\Controllers\InvestmentController::class, 'updatePrice']);
     Route::delete('/api/investments/{id}', [\App\Http\Controllers\InvestmentController::class, 'destroy']);
+
+    // Reimbursements
+    Route::get('/api/reimbursements', [\App\Http\Controllers\ReimbursementController::class, 'index']);
+    Route::post('/api/reimbursements', [\App\Http\Controllers\ReimbursementController::class, 'store']);
+    Route::patch('/api/reimbursements/{id}/status', [\App\Http\Controllers\ReimbursementController::class, 'updateStatus']);
+    Route::delete('/api/reimbursements/{id}', [\App\Http\Controllers\ReimbursementController::class, 'destroy']);
+
+    // Insurances
+    Route::get('/api/insurances', [\App\Http\Controllers\InsuranceController::class, 'index']);
+    Route::post('/api/insurances', [\App\Http\Controllers\InsuranceController::class, 'store']);
+    Route::delete('/api/insurances/{id}', [\App\Http\Controllers\InsuranceController::class, 'destroy']);
+
+    // Benefits
+    Route::get('/api/benefits', [\App\Http\Controllers\BenefitController::class, 'index']);
+    Route::post('/api/benefits', [\App\Http\Controllers\BenefitController::class, 'store']);
+    Route::delete('/api/benefits/{id}', [\App\Http\Controllers\BenefitController::class, 'destroy']);
 });
 
 Route::middleware('guest')->group(function () {

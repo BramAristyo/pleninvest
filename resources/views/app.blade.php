@@ -270,13 +270,14 @@
 
       <!-- ===== DIVERSIFIKASI ===== -->
       <div class="section" id="tab-divers">
+        <!-- 
         <div class="price-update-bar">
           <span>📡 Harga diperbarui: <span id="last-update">—</span></span>
           <button class="refresh-btn" onclick="fetchAllPrices()">⟳ Perbarui Harga</button>
         </div>
+        -->
 
-        <div class="g4">
-          <div class="stat-pill">
+        <div class="g4">          <div class="stat-pill">
             <div class="stat-label">Total Portofolio</div>
             <div class="stat-val bal" id="d-total">Rp 0</div>
           </div>

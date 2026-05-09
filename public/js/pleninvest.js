@@ -172,11 +172,11 @@ var gsUrl = '';
 
 function loadData() {
   try {
-    transactions = []; // Now fetched from backend API
-    reimburse = JSON.parse(localStorage.getItem('plen_rmb') || '[]');
-    assets = []; // Now fetched from backend API
-    insurance = JSON.parse(localStorage.getItem('plen_ins') || '[]');
-    tunjangan = JSON.parse(localStorage.getItem('plen_tnj') || '[]');
+    transactions = [];
+    reimburse = [];
+    assets = [];
+    insurance = [];
+    tunjangan = [];
     cicilanEmas = JSON.parse(localStorage.getItem('plen_ce') || '[]');
     gsUrl = localStorage.getItem('plen_gs_url') || '';
   } catch(e) { console.warn('Error loading data:', e); }
@@ -184,10 +184,6 @@ function loadData() {
 
 function saveAll() {
   try {
-    // transactions and assets are now stored in backend, no longer in localStorage
-    localStorage.setItem('plen_rmb', JSON.stringify(reimburse));
-    localStorage.setItem('plen_ins', JSON.stringify(insurance));
-    localStorage.setItem('plen_tnj', JSON.stringify(tunjangan));
     localStorage.setItem('plen_ce', JSON.stringify(cicilanEmas));
   } catch(e) { console.warn('Error saving:', e); }
 }
@@ -408,18 +404,66 @@ function addReimburse() {
   var note = document.getElementById('r-note').value;
   var status = document.getElementById('r-status').value;
   if (!date || !amount) { alert('Lengkapi tanggal dan nominal'); return; }
-  reimburse.push({ id: Date.now(), date: date, cat: cat, amount: amount, note: note, status: status });
-  saveAll(); renderReimburse(); calcAll();
+
+  fetch('/api/reimbursements', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({
+      date: date,
+      category: cat,
+      amount: amount,
+      note: note,
+      status: status
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      document.getElementById('r-amount').value = '';
+      document.getElementById('r-note').value = '';
+      renderReimburse();
+      showGardenMsg('Reimburse dicatat!');
+    }
+  })
+  .catch(function(e) { console.error('Error adding reimburse:', e); });
 }
 
 function deleteReimburse(id) {
-  reimburse = reimburse.filter(function(r) { return r.id !== id; });
-  saveAll(); renderReimburse(); calcAll();
+  if (!confirm('Hapus reimburse ini?')) return;
+  fetch('/api/reimbursements/' + id, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderReimburse();
+    }
+  })
+  .catch(function(e) { console.error('Error deleting reimburse:', e); });
 }
 
 function updateRmbStatus(id, status) {
-  var r = reimburse.find(function(r) { return r.id === id; });
-  if (r) { r.status = status; saveAll(); renderReimburse(); calcAll(); }
+  fetch('/api/reimbursements/' + id + '/status', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({ status: status })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderReimburse();
+    }
+  })
+  .catch(function(e) { console.error('Error updating status:', e); });
 }
 
 function renderReimburse() {
@@ -427,38 +471,52 @@ function renderReimburse() {
   var catF = catFEl ? catFEl.value : '';
   var statFEl = document.getElementById('r-filter-status');
   var statF = statFEl ? statFEl.value : '';
-  var list = reimburse.slice().sort(function(a,b) { return b.date.localeCompare(a.date); });
-  if (catF) list = list.filter(function(r) { return r.cat === catF; });
-  if (statF) list = list.filter(function(r) { return r.status === statF; });
-  var cm = curM();
-  var monthly = reimburse.filter(function(r) { return r.date.startsWith(cm); });
-  var total = monthly.reduce(function(s,r) { return s+r.amount; }, 0);
-  var pending = monthly.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s+r.amount; }, 0);
-  var received = monthly.filter(function(r) { return r.status==='received'; }).reduce(function(s,r) { return s+r.amount; }, 0);
-  var rTotal = document.getElementById('r-total'); if(rTotal) rTotal.textContent = fmtS(total);
-  var rPending = document.getElementById('r-pending'); if(rPending) rPending.textContent = fmtS(pending);
-  var rReceived = document.getElementById('r-received'); if(rReceived) rReceived.textContent = fmtS(received);
-  var el = document.getElementById('rmb-list');
-  if (!el) return;
-  if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="ei">🧾</div>Belum ada reimburse.</div>'; return; }
-  var html = '';
-  list.forEach(function(r) {
-    var icon = RMB_LABELS[r.cat] || '📦';
-    var catLabel = r.cat.replace('_', ' & ');
-    html += '<div class="rmb-row">'
-      + '<span style="font-size:11px;color:var(--medium)">' + fmtDate(r.date) + '</span>'
-      + '<span>' + icon + ' ' + catLabel + '</span>'
-      + '<span style="font-size:11px;color:var(--medium)">' + (r.note || '—') + '</span>'
-      + '<span style="font-family:\'Syne\',sans-serif;font-weight:600;color:var(--lake-deep);text-align:right">' + fmtS(r.amount) + '</span>'
-      + '<select onchange="updateRmbStatus(' + r.id + ',this.value)" style="font-size:10px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--cream)">'
-      + '<option value="pending"' + (r.status==='pending'?' selected':'') + '>Pending</option>'
-      + '<option value="approved"' + (r.status==='approved'?' selected':'') + '>OK</option>'
-      + '<option value="received"' + (r.status==='received'?' selected':'') + '>Terima</option>'
-      + '</select>'
-      + '<button class="del-btn" onclick="deleteReimburse(' + r.id + ')">&#215;</button>'
-      + '</div>';
-  });
-  el.innerHTML = html;
+  
+  fetch('/api/reimbursements')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = data.reimbursements;
+      reimburse = list;
+      
+      var filtered = list.slice();
+      if (catF) filtered = filtered.filter(function(r) { return r.category === catF; });
+      if (statF) filtered = filtered.filter(function(r) { return r.status === statF; });
+      
+      var cm = curM();
+      var monthly = list.filter(function(r) { return r.date.startsWith(cm); });
+      var total = monthly.reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
+      var pending = monthly.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
+      var received = monthly.filter(function(r) { return r.status==='received'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
+      
+      var rTotal = document.getElementById('r-total'); if(rTotal) rTotal.textContent = fmtS(total);
+      var rPending = document.getElementById('r-pending'); if(rPending) rPending.textContent = fmtS(pending);
+      var rReceived = document.getElementById('r-received'); if(rReceived) rReceived.textContent = fmtS(received);
+      
+      var el = document.getElementById('rmb-list');
+      if (!el) return;
+      if (!filtered.length) { el.innerHTML = '<div class="empty-state"><div class="ei">🧾</div>Belum ada reimburse.</div>'; return; }
+      
+      var html = '';
+      filtered.forEach(function(r) {
+        var icon = RMB_LABELS[r.category] || '📦';
+        var catLabel = r.category.replace('_', ' & ');
+        html += '<div class="rmb-row">'
+          + '<span style="font-size:11px;color:var(--medium)">' + fmtDate(r.date) + '</span>'
+          + '<span>' + icon + ' ' + catLabel + '</span>'
+          + '<span style="font-size:11px;color:var(--medium)">' + (r.note || '—') + '</span>'
+          + '<span style="font-family:\'Syne\',sans-serif;font-weight:600;color:var(--lake-deep);text-align:right">' + fmtS(r.amount) + '</span>'
+          + '<select onchange="updateRmbStatus(' + r.id + ',this.value)" style="font-size:10px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--cream)">'
+          + '<option value="pending"' + (r.status==='pending'?' selected':'') + '>Pending</option>'
+          + '<option value="approved"' + (r.status==='approved'?' selected':'') + '>OK</option>'
+          + '<option value="received"' + (r.status==='received'?' selected':'') + '>Terima</option>'
+          + '</select>'
+          + '<button class="del-btn" onclick="deleteReimburse(' + r.id + ')">&#215;</button>'
+          + '</div>';
+      });
+      el.innerHTML = html;
+      updateBerandaStats();
+    })
+    .catch(function(e) { console.error('Error fetching reimburse:', e); });
 }
 
 // ——— INSURANCE & TUNJANGAN ———
@@ -469,32 +527,79 @@ function addInsurance() {
   var due = document.getElementById('ins-due').value;
   var coverage = document.getElementById('ins-coverage').value;
   if (!name) { alert('Isi nama asuransi'); return; }
-  insurance.push({ id: Date.now(), name: name, type: type, premium: premium, due: due, coverage: coverage });
-  saveAll(); renderInsurance();
+  
+  fetch('/api/insurances', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({
+      name: name,
+      type: type,
+      premium: premium,
+      due_date: due,
+      coverage: coverage
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      document.getElementById('ins-name').value = '';
+      document.getElementById('ins-premium').value = '';
+      document.getElementById('ins-due').value = '';
+      document.getElementById('ins-coverage').value = '';
+      renderInsurance();
+      showGardenMsg('Asuransi ditambahkan!');
+    }
+  })
+  .catch(function(e) { console.error('Error adding insurance:', e); });
 }
 
 function deleteInsurance(id) {
-  insurance = insurance.filter(function(i) { return i.id !== id; });
-  saveAll(); renderInsurance();
+  if (!confirm('Hapus asuransi ini?')) return;
+  fetch('/api/insurances/' + id, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderInsurance();
+    }
+  })
+  .catch(function(e) { console.error('Error deleting insurance:', e); });
 }
 
 function renderInsurance() {
-  var total = insurance.reduce(function(s,i) { return s + i.premium; }, 0);
-  var insTotal = document.getElementById('ins-total'); if(insTotal) insTotal.textContent = fmtS(total);
-  var el = document.getElementById('ins-list');
-  if (!el) return;
-  if (!insurance.length) { el.innerHTML = '<div class="empty-state"><div class="ei">🛡️</div>Belum ada asuransi.</div>'; return; }
-  var html = '';
-  insurance.forEach(function(i) {
-    html += '<div class="ins-row">'
-      + '<div class="ins-left"><div class="ins-name">🛡️ ' + i.name + '</div>'
-      + '<div class="ins-sub">' + i.type + (i.coverage ? ' · ' + i.coverage : '') + '</div></div>'
-      + '<div class="ins-right"><div class="ins-amount">' + fmtS(i.premium) + '<span style="font-size:10px;font-weight:400;color:var(--medium)">/bln</span></div>'
-      + (i.due ? '<div class="ins-due">Jatuh tempo: ' + fmtDate(i.due) + '</div>' : '')
-      + '<button class="del-btn" style="margin-left:auto;margin-top:4px" onclick="deleteInsurance(' + i.id + ')">&#215;</button></div>'
-      + '</div>';
-  });
-  el.innerHTML = html;
+  fetch('/api/insurances')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = data.insurances;
+      insurance = list;
+      
+      var total = list.reduce(function(s,i) { return s + parseFloat(i.premium); }, 0);
+      var insTotal = document.getElementById('ins-total'); if(insTotal) insTotal.textContent = fmtS(total);
+      
+      var el = document.getElementById('ins-list');
+      if (!el) return;
+      if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="ei">🛡️</div>Belum ada asuransi.</div>'; return; }
+      
+      var html = '';
+      list.forEach(function(i) {
+        html += '<div class="ins-row">'
+          + '<div class="ins-left"><div class="ins-name">🛡️ ' + i.name + '</div>'
+          + '<div class="ins-sub">' + i.type + (i.coverage ? ' · ' + i.coverage : '') + '</div></div>'
+          + '<div class="ins-right"><div class="ins-amount">' + fmtS(i.premium) + '<span style="font-size:10px;font-weight:400;color:var(--medium)">/bln</span></div>'
+          + (i.due_date ? '<div class="ins-due">Jatuh tempo: ' + fmtDate(i.due_date) + '</div>' : '')
+          + '<button class="del-btn" style="margin-left:auto;margin-top:4px" onclick="deleteInsurance(' + i.id + ')">&#215;</button></div>'
+          + '</div>';
+      });
+      el.innerHTML = html;
+    })
+    .catch(function(e) { console.error('Error fetching insurance:', e); });
 }
 
 function addTunjangan() {
@@ -503,31 +608,76 @@ function addTunjangan() {
   var amount = parseFloat(document.getElementById('tnj-amount').value) || 0;
   var note = document.getElementById('tnj-note').value;
   if (!name) { alert('Isi nama tunjangan'); return; }
-  tunjangan.push({ id: Date.now(), name: name, type: type, amount: amount, note: note });
-  saveAll(); renderTunjangan();
+
+  fetch('/api/benefits', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({
+      name: name,
+      type: type,
+      amount: amount,
+      note: note
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      document.getElementById('tnj-name').value = '';
+      document.getElementById('tnj-amount').value = '';
+      document.getElementById('tnj-note').value = '';
+      renderTunjangan();
+      showGardenMsg('Tunjangan ditambahkan!');
+    }
+  })
+  .catch(function(e) { console.error('Error adding benefit:', e); });
 }
 
 function deleteTunjangan(id) {
-  tunjangan = tunjangan.filter(function(t) { return t.id !== id; });
-  saveAll(); renderTunjangan();
+  if (!confirm('Hapus tunjangan ini?')) return;
+  fetch('/api/benefits/' + id, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      renderTunjangan();
+    }
+  })
+  .catch(function(e) { console.error('Error deleting benefit:', e); });
 }
 
 function renderTunjangan() {
-  var total = tunjangan.reduce(function(s,t) { return s + t.amount; }, 0);
-  var tnjTotal = document.getElementById('tnj-total'); if(tnjTotal) tnjTotal.textContent = fmtS(total);
-  var el = document.getElementById('tnj-list');
-  if (!el) return;
-  if (!tunjangan.length) { el.innerHTML = '<div class="empty-state"><div class="ei">💼</div>Belum ada tunjangan.</div>'; return; }
-  var html = '';
-  tunjangan.forEach(function(t) {
-    html += '<div class="ins-row">'
-      + '<div class="ins-left"><div class="ins-name">💼 ' + t.name + '</div>'
-      + '<div class="ins-sub">' + t.type + (t.note ? ' · ' + t.note : '') + '</div></div>'
-      + '<div class="ins-right"><div class="ins-amount">' + fmtS(t.amount) + '<span style="font-size:10px;font-weight:400;color:var(--medium)">/bln</span></div>'
-      + '<button class="del-btn" style="margin-left:auto;margin-top:4px" onclick="deleteTunjangan(' + t.id + ')">&#215;</button></div>'
-      + '</div>';
-  });
-  el.innerHTML = html;
+  fetch('/api/benefits')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = data.benefits;
+      tunjangan = list;
+      
+      var total = list.reduce(function(s,t) { return s + parseFloat(t.amount); }, 0);
+      var tnjTotal = document.getElementById('tnj-total'); if(tnjTotal) tnjTotal.textContent = fmtS(total);
+      
+      var el = document.getElementById('tnj-list');
+      if (!el) return;
+      if (!list.length) { el.innerHTML = '<div class="empty-state"><div class="ei">💼</div>Belum ada tunjangan.</div>'; return; }
+      
+      var html = '';
+      list.forEach(function(t) {
+        html += '<div class="ins-row">'
+          + '<div class="ins-left"><div class="ins-name">💼 ' + t.name + '</div>'
+          + '<div class="ins-sub">' + t.type + (t.note ? ' · ' + t.note : '') + '</div></div>'
+          + '<div class="ins-right"><div class="ins-amount">' + fmtS(t.amount) + '<span style="font-size:10px;font-weight:400;color:var(--medium)">/bln</span></div>'
+          + '<button class="del-btn" style="margin-left:auto;margin-top:4px" onclick="deleteTunjangan(' + t.id + ')">&#215;</button></div>'
+          + '</div>';
+      });
+      el.innerHTML = html;
+    })
+    .catch(function(e) { console.error('Error fetching benefits:', e); });
 }
 
 // ——— DIVERSIFICATION ———
@@ -632,8 +782,8 @@ function renderAssets() {
       }
       var html = '';
       list.forEach(function(a, i) {
-        var modal = a.buy_price * a.quantity;
-        var current = a.current_price * a.quantity;
+        var modal = parseFloat(a.buy_price) * parseFloat(a.quantity);
+        var current = parseFloat(a.current_price) * parseFloat(a.quantity);
         var pl = current - modal;
         var plPct = modal > 0 ? (pl/modal*100).toFixed(1) : '0.0';
         var plSign = pl >= 0 ? '+' : '';
@@ -999,7 +1149,7 @@ function updateBerandaStats() {
   var cm = curM();
   var inc = 0, exp = 0;
   transactions.filter(function(t) { return t.date.startsWith(cm); }).forEach(function(t) {
-    if (t.type==='income') inc+=t.amount; else exp+=t.amount;
+    if (t.type==='income') inc+=parseFloat(t.amount); else exp+=parseFloat(t.amount);
   });
   var bInc = document.getElementById('b-inc'); if(bInc) bInc.textContent = fmtS(inc);
   var bExp = document.getElementById('b-exp'); if(bExp) bExp.textContent = fmtS(exp);
@@ -1009,9 +1159,9 @@ function updateBerandaStats() {
     bEl.textContent = fmtS(Math.abs(bal));
     bEl.style.color = bal >= 0 ? 'var(--good)' : 'var(--bad)';
   }
-  var totalPort = assets.reduce(function(s,a) { return s + (a.current_price || a.buy_price || 0) * (a.quantity || 0); }, 0);
+  var totalPort = assets.reduce(function(s,a) { return s + (parseFloat(a.current_price) || parseFloat(a.buy_price) || 0) * (parseFloat(a.quantity) || 0); }, 0);
   var bPort = document.getElementById('b-port'); if(bPort) bPort.textContent = fmtS(totalPort);
-  var pend = reimburse.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s+r.amount; }, 0);
+  var pend = reimburse.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s+parseFloat(r.amount); }, 0);
   var bRmb = document.getElementById('b-rmb'); if(bRmb) bRmb.textContent = fmtS(pend);
 }
 
@@ -1095,7 +1245,7 @@ function renderCharts() {
   if (legEl) legEl.innerHTML = eCats.map(function(c,i){return '<div class="legend-item"><div class="legend-dot" style="background:'+PALETTE[i%PALETTE.length]+'"></div>'+c+'</div>';}).join('');
 
   var assetByCat = {};
-  assets.forEach(function(a){var v=(a.current_price || a.buy_price || 0)*a.quantity;assetByCat[a.type]=(assetByCat[a.type]||0)+v;});
+  assets.forEach(function(a){var v=(parseFloat(a.current_price) || parseFloat(a.buy_price) || 0)*parseFloat(a.quantity);assetByCat[a.type]=(assetByCat[a.type]||0)+v;});
   var aCats=Object.keys(assetByCat), aVals=aCats.map(function(c){return assetByCat[c];});
   var totalAsset=aVals.reduce(function(a,b){return a+b;},0);
   var dAssetTotal = document.getElementById('dnut-asset-total'); if(dAssetTotal) dAssetTotal.textContent = fmtS(totalAsset||0);
@@ -1117,7 +1267,7 @@ function renderCharts() {
     var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     months6.push(MONTHS_S[d.getMonth()]);
     var mI=0,mE=0;
-    transactions.filter(function(t){return t.date.startsWith(key);}).forEach(function(t){if(t.type==='income')mI+=t.amount;else mE+=t.amount;});
+    transactions.filter(function(t){return t.date.startsWith(key);}).forEach(function(t){if(t.type==='income')mI+=parseFloat(t.amount);else mE+=parseFloat(t.amount);});
     incArr.push(mI); expArr.push(mE);
   }
   destroyChart('ch-trend');
@@ -1133,7 +1283,7 @@ function renderCharts() {
   var daysInMonth=new Date(currentMonth.getFullYear(),currentMonth.getMonth()+1,0).getDate();
   var days={}, dayLabels=[];
   for (var d2=1;d2<=daysInMonth;d2++){days[String(d2).padStart(2,'0')]=0;dayLabels.push(String(d2));}
-  monthly.forEach(function(t){var dy=t.date.split('-')[2];if(days[dy]!==undefined)days[dy]+=(t.type==='income'?t.amount:-t.amount);});
+  monthly.forEach(function(t){var dy=t.date.split('-')[2];if(days[dy]!==undefined)days[dy]+=(t.type==='income'?parseFloat(t.amount):-parseFloat(t.amount));});
   var run=0, runArr=Object.values(days).map(function(v){run+=v;return run;});
   destroyChart('ch-daily');
   var chDaily = document.getElementById('ch-daily');
@@ -1146,7 +1296,7 @@ function renderCharts() {
   }
 
   var rmbByCat={};
-  reimburse.forEach(function(r){rmbByCat[r.cat]=(rmbByCat[r.cat]||0)+r.amount;});
+  reimburse.forEach(function(r){rmbByCat[r.category]=(rmbByCat[r.category]||0)+parseFloat(r.amount);});
   var rCats=Object.keys(rmbByCat),rVals=rCats.map(function(c){return rmbByCat[c];});
   destroyChart('ch-rmb');
   var chRmb = document.getElementById('ch-rmb');

@@ -46,4 +46,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(Investment::class);
     }
+
+    public function reimbursements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Reimbursement::class);
+    }
+
+    public function insurances(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Insurance::class);
+    }
+
+    public function benefits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Benefit::class);
+    }
 }
