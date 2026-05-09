@@ -543,8 +543,9 @@ function renderReimburse() {
       var cm = curM();
       var monthly = list.filter(function(r) { return r.date.startsWith(cm); });
       var total = monthly.reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
-      var pending = monthly.filter(function(r) { return r.status==='pending'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
-      var received = monthly.filter(function(r) { return r.status==='received'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
+      // Group 'pending' and 'approved' together as they are both not yet 'received'
+      var pending = monthly.filter(function(r) { return r.status === 'pending' || r.status === 'approved'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
+      var received = monthly.filter(function(r) { return r.status === 'received'; }).reduce(function(s,r) { return s + parseFloat(r.amount); }, 0);
       
       var rTotal = document.getElementById('r-total'); if(rTotal) rTotal.textContent = fmtS(total);
       var rPending = document.getElementById('r-pending'); if(rPending) rPending.textContent = fmtS(pending);
@@ -1088,21 +1089,28 @@ function getAIReco() {
 var healthScores = {};
 
 function calcHealth() {
-  var inc=getRawValue('h-inc'), exp=getRawValue('h-exp'), sav=getRawValue('h-sav'), dbt=getRawValue('h-dbt'), em=getRawValue('h-em'), tth=getRawValue('h-tth');
-  if (!inc) {
-      // If we have no income data, don't update garden score yet to avoid 'dead' garden 
-      // unless we specifically want to show level 0.
-      updateLevelDisplay();
-      return;
+  function v(id) { 
+      var el = document.getElementById(id);
+      return el ? (parseFloat(el.value.replace(/\./g, "")) || 0) : 0; 
   }
-  var sr=sav/inc*100, dr=dbt/inc*100, emM=exp>0?em/exp:0, lr=exp/inc*100, tr=tth/inc*100;
+  var inc=v('h-inc'), exp=v('h-exp'), sav=v('h-sav'), dbt=v('h-dbt'), em=v('h-em'), tth=v('h-tth');
+  
+  // Calculate score even with 0 income to show a baseline or 'Seed' state
+  var sr = inc > 0 ? (sav/inc*100) : 0;
+  var dr = inc > 0 ? (dbt/inc*100) : (dbt > 0 ? 100 : 0);
+  var emM = exp > 0 ? (em/exp) : 0;
+  var lr = inc > 0 ? (exp/inc*100) : (exp > 0 ? 100 : 0);
+  var tr = inc > 0 ? (tth/inc*100) : 0;
+
   var sS=sr>=20?20:sr>=15?17:sr>=10?12:sr>=5?6:2;
   var dS=dr===0?20:dr<15?18:dr<30?12:dr<40?6:2;
   var eS=emM>=9?20:emM>=6?18:emM>=3?12:emM>=1?6:2;
   var lS=lr<60?20:lr<70?16:lr<80?10:lr<90?5:2;
   var tS=tr>=10?20:tr>=7?15:tr>=5?10:tr>0?5:8;
+  
   var total = sS+dS+eS+lS+tS;
   healthScores = {sr:sr,dr:dr,emM:emM,lr:lr,tr:tr,sS:sS,dS:dS,eS:eS,lS:lS,tS:tS,total:total,inc:inc,exp:exp};
+  
   var sn = document.getElementById('score-num'); if(sn) sn.textContent = total;
   var grades = total>=90?['🌳 Berlimpah','Kondisi finansialmu luar biasa!','#1E4D2B','#fff']
     :total>=75?['🌿 Sangat Sehat','Portofolio kuat dan berkelanjutan.','#3D8A55','#fff']
@@ -1110,14 +1118,17 @@ function calcHealth() {
     :total>=45?['🍂 Cukup','Ada beberapa hal yang perlu perhatian.','#D4A843','#fff']
     :total>=25?['⚠️ Perlu Perhatian','Kondisi perlu perbaikan. Mulai dari langkah kecil.','#D47373','#fff']
     :['🪨 Kritis','Prioritas utama: stabilisasi keuangan.','#B84040','#fff'];
+  
   var badge = document.getElementById('score-badge');
   if (badge) {
     badge.textContent = grades[0]; badge.style.background = grades[2]; badge.style.color = grades[3];
   }
+  
   var sg = document.getElementById('score-grade'); if(sg) sg.textContent = grades[1];
   var equivMap = ['Setara: Perlu bantuan segera','Setara: Kebutuhan pokok terpenuhi','Setara: Dana darurat terbentuk','Setara: Bisa DP rumah + investasi','Setara: Bebas finansial — fokus melayani'];
   var equivIdx = total>=80?4:total>=60?3:total>=45?2:total>=25?1:0;
   var seq = document.getElementById('score-equiv'); if(seq) seq.textContent = equivMap[equivIdx];
+
   function setM(vid, pid, bid, val, unit, good, warn) {
     var vEl = document.getElementById(vid);
     var pEl = document.getElementById(pid);
@@ -1129,7 +1140,9 @@ function calcHealth() {
     bEl.style.width = Math.min(100, val*(100/(good||1))) + '%';
     bEl.className = 'prog-fill fill-' + (st==='good'?'g':st==='warn'?'w':'b');
   }
+  
   setM('mv-sav','mp-sav','pb-sav',sr,'%',20,10);
+  
   var mvDbt = document.getElementById('mv-dbt');
   var mpDbt = document.getElementById('mp-dbt');
   var pbDbt = document.getElementById('pb-dbt');
@@ -1139,7 +1152,9 @@ function calcHealth() {
     pbDbt.style.width = Math.min(100, dr*2.5)+'%';
     pbDbt.className = 'prog-fill fill-'+(dr<15?'g':dr<30?'w':'b');
   }
+  
   setM('mv-em','mp-em','pb-em',emM,' bln',6,3);
+  
   var mvLv = document.getElementById('mv-lv');
   var mpLv = document.getElementById('mp-lv');
   var pbLv = document.getElementById('pb-lv');
@@ -1149,7 +1164,9 @@ function calcHealth() {
     pbLv.style.width = Math.min(100, lr)+'%';
     pbLv.className = 'prog-fill fill-'+(lr<70?'g':lr<85?'w':'b');
   }
+  
   var mvTth = document.getElementById('mv-tth'); if(mvTth) mvTth.textContent = Math.round(tr)+'%';
+
   updateGardenScore(total);
   updateLevelDisplay();
   renderHealthCharts();
@@ -1585,6 +1602,7 @@ function showGsMsg(msg, type) {
 }
 
 function connectSheets() {
+    /* Feature disabled - transitioned to Direct Excel Export
   var urlInp = document.getElementById('gs-url');
   if (!urlInp) return;
   var url = urlInp.value.trim();
@@ -1596,23 +1614,55 @@ function connectSheets() {
     updateGsStatus();
     showGsMsg('✅ Berhasil terhubung!', 'ok');
   }).catch(function() { showGsMsg('Koneksi gagal. Periksa URL.', 'err'); });
+  */
 }
 
 function disconnectSheets() {
+    /* Feature disabled
   gsUrl = '';
   try { localStorage.removeItem('plen_gs_url'); } catch(e) {}
   var inp = document.getElementById('gs-url'); if(inp) inp.value = '';
   updateGsStatus();
   showGsMsg('Koneksi diputus. Data tetap aman di lokal.', 'info');
+  */
 }
 
 function syncAll() {
+    /* Feature disabled
   if (!gsUrl) { showGsMsg('Belum terhubung.', 'err'); return; }
   showGsMsg('Menyinkronkan data...', 'info');
   gsPost({action:'sync_all',transactions:transactions,reimburse:reimburse,assets:assets,insurance:insurance,tunjangan:tunjangan}).then(function(ok){
     if (ok) showGsMsg('✅ Sync berhasil! ' + transactions.length + ' transaksi terkirim.', 'ok');
     else showGsMsg('Gagal sync. Cek koneksi.', 'err');
   });
+  */
+}
+
+function initExportExcel() {
+    const btn = document.getElementById('btn-export-excel');
+    if (!btn) return;
+    
+    btn.addEventListener('click', function() {
+        const start = document.getElementById('export-start').value;
+        const end = document.getElementById('export-end').value;
+        
+        let url = '/api/export';
+        const params = [];
+        if (start) params.push('start_month=' + start);
+        if (end) params.push('end_month=' + end);
+        
+        if (params.length) url += '?' + params.join('&');
+        
+        window.location.href = url;
+    });
+    
+    // Set default values to current month
+    const now = new Date();
+    const curMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const startInp = document.getElementById('export-start');
+    const endInp = document.getElementById('export-end');
+    if (startInp) startInp.value = curMonth;
+    if (endInp) endInp.value = curMonth;
 }
 
 function gsPost(data) {
@@ -1640,6 +1690,7 @@ function switchTab(name, btn) {
 function init() {
   loadData();
   initMoneyInputs();
+  initExportExcel();
   var txnDate = document.getElementById('txn-date'); if(txnDate) txnDate.valueAsDate = new Date();
   var rDate = document.getElementById('r-date'); if(rDate) rDate.valueAsDate = new Date();
   var aDate = document.getElementById('a-date'); if(aDate) aDate.valueAsDate = new Date();

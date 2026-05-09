@@ -40,6 +40,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/benefits', [\App\Http\Controllers\BenefitController::class, 'index']);
     Route::post('/api/benefits', [\App\Http\Controllers\BenefitController::class, 'store']);
     Route::delete('/api/benefits/{id}', [\App\Http\Controllers\BenefitController::class, 'destroy']);
+
+    // Export
+    Route::get('/api/export', [\App\Http\Controllers\ExportController::class, 'downloadExcel']);
 });
 
 Route::middleware('guest')->group(function () {

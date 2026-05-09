@@ -738,30 +738,51 @@
         <div id="tips-container"></div>
       </div>
 
-      <!-- ===== SHEETS ===== -->
+      <!-- ===== SHEETS / EXPORT ===== -->
       <div class="section" id="tab-sheets">
         <div class="card"
-          style="background:linear-gradient(135deg,var(--forest-dark),var(--forest-mid));border:none;color:#fff">
-          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px">🔗 Sinkronisasi
-            Real-Time ke Google Sheets</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.8);font-weight:300;line-height:1.7">Data tersimpan di Google
-            Sheets milikmu — hanya kamu yang punya akses. Menggunakan Google Apps Script resmi. Tidak ada server pihak
-            ketiga. <strong>Bahkan Pleninvest tidak bisa buka datamu tanpa izinmu.</strong></div>
+          style="background:linear-gradient(135deg,var(--lake-deep),var(--lake));border:none;color:#fff">
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px">📊 Export Data ke Excel</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.8);font-weight:300;line-height:1.7">Unduh semua data keuanganmu dalam format Excel (.xlsx). Data mencakup Transaksi, Reimburse, Diversifikasi, Asuransi, dan Tunjangan.</div>
         </div>
+
         <div class="card">
-          <div class="card-title">⚙️ Status & Koneksi</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-            <div class="gs-dot" id="gs-dot2" style="width:12px;height:12px"></div>
-            <span style="font-size:13px;font-weight:500" id="gs-status-text">Belum terhubung</span>
+          <div class="card-title">📅 Filter Periode Export</div>
+          <div class="g2">
+            <div class="field">
+              <label>Bulan Mulai</label>
+              <input type="month" id="export-start" class="field-input">
+            </div>
+            <div class="field">
+              <label>Bulan Selesai</label>
+              <input type="month" id="export-end" class="field-input">
+            </div>
           </div>
-          <div class="gs-input-row">
-            <input type="text" id="gs-url" placeholder="Paste URL Google Apps Script di sini...">
-            <button class="gs-connect-btn" onclick="connectSheets()">Hubungkan</button>
+          <button class="btn btn-lake" id="btn-export-excel">📥 Export ke Excel</button>
+        </div>
+
+        <div style="opacity: 0.5; pointer-events: none;">
+          <div class="card"
+            style="background:linear-gradient(135deg,var(--forest-dark),var(--forest-mid));border:none;color:#fff">
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px">🔗 Sinkronisasi
+              Real-Time ke Google Sheets (Non-Aktif)</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.8);font-weight:300;line-height:1.7">Fitur ini digantikan oleh Export Excel langsung. <strong>Bahkan Pleninvest tidak bisa buka datamu tanpa izinmu.</strong></div>
           </div>
-          <div id="gs-msg"></div>
-          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-            <button class="btn btn-sage btn-sm" onclick="syncAll()">⬆ Sync Semua Data</button>
-            <button class="btn btn-outline btn-sm" onclick="disconnectSheets()">Putus Koneksi</button>
+          <div class="card">
+            <div class="card-title">⚙️ Status & Koneksi</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <div class="gs-dot" id="gs-dot2" style="width:12px;height:12px"></div>
+              <span style="font-size:13px;font-weight:500" id="gs-status-text">Belum terhubung</span>
+            </div>
+            <div class="gs-input-row">
+              <input type="text" id="gs-url" placeholder="Paste URL Google Apps Script di sini..." disabled>
+              <button class="gs-connect-btn" onclick="connectSheets()" disabled>Hubungkan</button>
+            </div>
+            <div id="gs-msg"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+              <button class="btn btn-sage btn-sm" onclick="syncAll()" disabled>⬆ Sync Semua Data</button>
+              <button class="btn btn-outline btn-sm" onclick="disconnectSheets()" disabled>Putus Koneksi</button>
+            </div>
           </div>
         </div>
         <div class="card">
