@@ -11,6 +11,9 @@
       <div class="gs-dot" id="gs-dot"></div>
       <span id="gs-label">Lokal</span>
     </div>
+    <div class="gs-pill" style="border-color: var(--bad); color: var(--bad); background: rgba(212, 115, 115, 0.1);" onclick="lockApp()">
+      <span>Logout 🚪</span>
+    </div>
     <button class="lock-btn" onclick="lockApp()" title="Kunci Aplikasi">🔒</button>
   </div>
 </header>

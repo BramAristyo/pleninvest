@@ -171,9 +171,8 @@ var priceCache = {};
 var gsUrl = '';
 
 function loadData() {
-  // TODO: Add Laravel fetch() API calls to replace localStorage logic
   try {
-    transactions = JSON.parse(localStorage.getItem('plen_txn') || '[]');
+    transactions = []; // Now fetched from backend API
     reimburse = JSON.parse(localStorage.getItem('plen_rmb') || '[]');
     assets = JSON.parse(localStorage.getItem('plen_assets') || '[]');
     insurance = JSON.parse(localStorage.getItem('plen_ins') || '[]');
@@ -184,9 +183,8 @@ function loadData() {
 }
 
 function saveAll() {
-  // TODO: Add Laravel fetch() API calls to replace localStorage logic
   try {
-    localStorage.setItem('plen_txn', JSON.stringify(transactions));
+    // transactions are now stored in backend, no longer in localStorage
     localStorage.setItem('plen_rmb', JSON.stringify(reimburse));
     localStorage.setItem('plen_assets', JSON.stringify(assets));
     localStorage.setItem('plen_ins', JSON.stringify(insurance));
@@ -206,6 +204,13 @@ function fmtS(n) {
   if (a >= 1e9)  return 'Rp ' + (n/1e9).toFixed(1)  + 'M';
   if (a >= 1e6)  return 'Rp ' + (n/1e6).toFixed(1)  + 'jt';
   return 'Rp ' + Math.round(n||0).toLocaleString('id-ID');
+}
+
+function fmtDate(dStr) {
+  if (!dStr) return '—';
+  var d = new Date(dStr);
+  if (isNaN(d.getTime())) return dStr;
+  return d.getDate() + ' ' + MONTHS_S[d.getMonth()] + ' ' + d.getFullYear();
 }
 
 // ——— CATEGORIES ———
@@ -255,63 +260,124 @@ function addTransaction() {
   var benefit = document.getElementById('txn-benefit').value;
   var benefitNote = document.getElementById('txn-benefit-note') ? document.getElementById('txn-benefit-note').value : '';
   if (!date || !amount || amount <= 0) { alert('Lengkapi tanggal dan nominal ya'); return; }
-  var t = { id: Date.now(), date: date, type: type, cat: cat, note: note, amount: amount, benefit: benefit, benefitNote: benefitNote };
-  transactions.push(t);
-  saveAll();
-  document.getElementById('txn-amount').value = '';
-  document.getElementById('txn-note').value = '';
-  document.getElementById('txn-benefit').value = '';
-  var bnw = document.getElementById('benefit-note-wrap');
-  if (bnw) bnw.style.display = 'none';
-  renderTransactions();
-  calcAll();
-  showGardenMsg(type === 'income' ? 'Benih baru ditanam! Pemasukan bertambah.' : 'Pengeluaran dicatat.');
-  if (gsUrl) gsPost({action:'add_txn', txn: t});
+
+  fetch('/api/transactions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({
+      date: date,
+      type: type,
+      category: cat,
+      amount: amount,
+      note: note,
+      benefit_type: benefit,
+      benefit_note: benefitNote
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    document.getElementById('txn-amount').value = '';
+    document.getElementById('txn-note').value = '';
+    document.getElementById('txn-benefit').value = '';
+    var bnw = document.getElementById('benefit-note-wrap');
+    if (bnw) bnw.style.display = 'none';
+    renderTransactions();
+    showGardenMsg(type === 'income' ? 'Benih baru ditanam! Pemasukan bertambah.' : 'Pengeluaran dicatat.');
+  })
+  .catch(function(e) { console.error('Error adding transaction:', e); });
 }
 
 function deleteTransaction(id) {
-  transactions = transactions.filter(function(t) { return t.id !== id; });
-  saveAll(); renderTransactions(); calcAll();
+  if (!confirm('Hapus transaksi ini?')) return;
+  fetch('/api/transactions/' + id, {
+    method: 'DELETE',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  })
+  .then(function() {
+    renderTransactions();
+  })
+  .catch(function(e) { console.error('Error deleting transaction:', e); });
 }
 
 function renderTransactions() {
   var cm = curM();
-  var list = transactions.filter(function(t) { return t.date.startsWith(cm); })
-                         .sort(function(a,b) { return b.date.localeCompare(a.date); });
-  var inc = 0, exp = 0;
-  list.forEach(function(t) { if (t.type==='income') inc+=t.amount; else exp+=t.amount; });
-  var cInc = document.getElementById('c-inc'); if(cInc) cInc.textContent = fmtS(inc);
-  var cExp = document.getElementById('c-exp'); if(cExp) cExp.textContent = fmtS(exp);
-  var bal = inc - exp;
-  var bEl = document.getElementById('c-bal');
-  if (bEl) {
-    bEl.textContent = fmtS(Math.abs(bal));
-    bEl.style.color = bal >= 0 ? 'var(--good)' : 'var(--bad)';
-  }
-  var el = document.getElementById('txn-list');
-  if (!el) return;
-  if (!list.length) {
-    el.innerHTML = '<div class="empty-state"><div class="ei">🌿</div>Belum ada transaksi bulan ini.</div>';
-    return;
-  }
-  var html = '';
-  list.forEach(function(t) {
-    var benefitBadge = t.benefit ? '<span class="pill pill-neu">' + t.benefit + '</span>' : '';
-    var catNote = t.cat + (t.note ? ' <span style="color:var(--light)">· ' + t.note + '</span>' : '');
-    var amtClass = t.type === 'income' ? 'txn-amt inc' : 'txn-amt exp';
-    var sign = t.type === 'income' ? '+' : '-';
-    html += '<div class="txn-row">'
-      + '<span style="color:var(--medium);font-size:11px">' + t.date + '</span>'
-      + '<span style="font-size:12px">' + catNote + '</span>'
-      + '<span style="font-size:11px">' + benefitBadge + '</span>'
-      + '<span class="' + amtClass + '">' + sign + fmtS(t.amount) + '</span>'
-      + '<button class="del-btn" onclick="deleteTransaction(' + t.id + ')">&#215;</button>'
-      + '</div>';
-  });
-  el.innerHTML = html;
+  fetch('/api/transactions?month=' + cm)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var list = data.transactions;
+      var stats = data.stats;
+      
+      // Update global transactions state for this month
+      transactions = transactions.filter(function(t) { return !t.date.startsWith(cm); });
+      transactions = transactions.concat(list);
+
+      // Update Catat stats UI
+      var cInc = document.getElementById('c-inc'); if(cInc) cInc.textContent = fmtS(stats.income);
+      var cExp = document.getElementById('c-exp'); if(cExp) cExp.textContent = fmtS(stats.expense);
+      var bEl = document.getElementById('c-bal');
+      if (bEl) {
+        bEl.textContent = fmtS(Math.abs(stats.balance));
+        bEl.style.color = stats.balance >= 0 ? 'var(--good)' : 'var(--bad)';
+      }
+
+      // Render the list
+      var el = document.getElementById('txn-list');
+      if (el) {
+        if (!list.length) {
+          el.innerHTML = '<div class="empty-state"><div class="ei">🌿</div>Belum ada transaksi bulan ini.</div>';
+        } else {
+          var html = '';
+          list.forEach(function(t) {
+            var benefitBadge = t.benefit_type ? '<span class="pill pill-neu">' + t.benefit_type + '</span>' : '';
+            var catNote = t.category + (t.note ? ' <span style="color:var(--light)">· ' + t.note + '</span>' : '');
+            var amtClass = t.type === 'income' ? 'txn-amt inc' : 'txn-amt exp';
+            var sign = t.type === 'income' ? '+' : '-';
+            html += '<div class="txn-row">'
+              + '<span style="color:var(--medium);font-size:11px">' + fmtDate(t.date) + '</span>'
+              + '<span style="font-size:12px">' + catNote + '</span>'
+              + '<span style="font-size:11px">' + benefitBadge + '</span>'
+              + '<span class="' + amtClass + '">' + sign + fmtS(t.amount) + '</span>'
+              + '<button class="del-btn" onclick="deleteTransaction(' + t.id + ')">&#215;</button>'
+              + '</div>';
+          });
+          el.innerHTML = html;
+        }
+      }
+      
+      // Update Beranda stats
+      updateBerandaStats();
+    })
+    .catch(function(e) { console.error('Error fetching transactions:', e); });
 }
 
 // ——— NET WORTH ———
+var nwTimer;
+function syncNetWorth() {
+  clearTimeout(nwTimer);
+  nwTimer = setTimeout(function() {
+    var payload = {
+      savings: parseFloat(document.getElementById('nw-sav').value) || 0,
+      emergency_fund: parseFloat(document.getElementById('nw-em').value) || 0,
+      investments: parseFloat(document.getElementById('nw-inv').value) || 0,
+      other_assets: parseFloat(document.getElementById('nw-oth').value) || 0,
+      debt: parseFloat(document.getElementById('nw-dbt').value) || 0
+    };
+    fetch('/api/net-worth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      body: JSON.stringify(payload)
+    }).catch(function(e) { console.error('NW sync failed', e); });
+  }, 1000);
+}
+
 function calcNetWorth() {
   function v(id) { 
       var el = document.getElementById(id);
@@ -381,7 +447,7 @@ function renderReimburse() {
     var icon = RMB_LABELS[r.cat] || '📦';
     var catLabel = r.cat.replace('_', ' & ');
     html += '<div class="rmb-row">'
-      + '<span style="font-size:11px;color:var(--medium)">' + r.date + '</span>'
+      + '<span style="font-size:11px;color:var(--medium)">' + fmtDate(r.date) + '</span>'
       + '<span>' + icon + ' ' + catLabel + '</span>'
       + '<span style="font-size:11px;color:var(--medium)">' + (r.note || '—') + '</span>'
       + '<span style="font-family:\'Syne\',sans-serif;font-weight:600;color:var(--lake-deep);text-align:right">' + fmtS(r.amount) + '</span>'
@@ -425,7 +491,7 @@ function renderInsurance() {
       + '<div class="ins-left"><div class="ins-name">🛡️ ' + i.name + '</div>'
       + '<div class="ins-sub">' + i.type + (i.coverage ? ' · ' + i.coverage : '') + '</div></div>'
       + '<div class="ins-right"><div class="ins-amount">' + fmtS(i.premium) + '<span style="font-size:10px;font-weight:400;color:var(--medium)">/bln</span></div>'
-      + (i.due ? '<div class="ins-due">Jatuh tempo: ' + i.due + '</div>' : '')
+      + (i.due ? '<div class="ins-due">Jatuh tempo: ' + fmtDate(i.due) + '</div>' : '')
       + '<button class="del-btn" style="margin-left:auto;margin-top:4px" onclick="deleteInsurance(' + i.id + ')">&#215;</button></div>'
       + '</div>';
   });
@@ -511,7 +577,7 @@ function renderAssets() {
     html += '<div class="asset-row">'
       + '<div class="asset-icon" style="background:' + bg + '">' + icon + '</div>'
       + '<div><div class="asset-name">' + a.name + '</div>'
-      + '<div class="asset-sub">' + a.qty + ' unit · Beli: ' + fmtS(a.buyPrice) + ' · ' + (a.date||'—') + '</div></div>'
+      + '<div class="asset-sub">' + a.qty + ' unit · Beli: ' + fmtS(a.buyPrice) + ' · ' + fmtDate(a.date) + '</div></div>'
       + '<div><div class="asset-current">' + fmtS(current) + '</div>'
       + '<div class="asset-sub">Harga kini: ' + fmtS(a.currentPrice||a.buyPrice) + '</div></div>'
       + '<div><div class="asset-pl ' + (pl>=0?'pos':'neg') + '">' + plSign + fmtS(pl) + ' (' + plPct + '%)</div></div>'
@@ -598,7 +664,7 @@ function renderCicilanEmas() {
     html += '<div style="background:linear-gradient(135deg,var(--warm-white),#FBF8EE);border:1.5px solid #D4A843;border-radius:14px;padding:18px;margin-top:10px">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">'
       + '<div><div style="font-family:\'Syne\',sans-serif;font-size:14px;font-weight:700">🥇 ' + ce.name + '</div>'
-      + '<div style="font-size:11px;color:var(--medium)">Target: ' + ce.gram + 'g · Mulai: ' + (ce.start||'—') + ' · ' + ce.duration + ' bulan</div></div>'
+      + '<div style="font-size:11px;color:var(--medium)">Target: ' + ce.gram + 'g · Mulai: ' + fmtDate(ce.start) + ' · ' + ce.duration + ' bulan</div></div>'
       + '<span class="pill" style="' + badgeStyle + '">' + (selesai ? '✓ Lunas' : '⏳ Cicilan') + '</span></div>'
       + '<div class="g3" style="margin-bottom:10px">'
       + '<div><div style="font-size:10px;color:var(--medium);text-transform:uppercase;letter-spacing:.4px">Sudah Dibayar</div><div style="font-family:\'Syne\',sans-serif;font-weight:700;color:var(--good)">' + fmtS(totalBayar) + '</div></div>'
@@ -659,7 +725,7 @@ function saveHistorical() {
   var date = y + '-' + m + '-01';
   var cats = document.querySelectorAll('.hist-cat');
   var amounts = document.querySelectorAll('.hist-amount');
-  var saved = 0;
+  var txns = [];
   for (var i = 0; i < amounts.length; i++) {
     var amount = parseFloat(amounts[i].value);
     if (!amount || amount <= 0) continue;
@@ -667,18 +733,39 @@ function saveHistorical() {
     var parts = catVal.split(':');
     var type = parts[0];
     var cat = parts.slice(1).join(':');
-    transactions.push({ id: Date.now()+i, date: date, type: type, cat: cat, note: 'Import historis', amount: amount, benefit: '', benefitNote: '' });
-    saved++;
+    txns.push({ 
+        date: date, 
+        type: type, 
+        category: cat, 
+        note: 'Import historis', 
+        amount: amount, 
+        benefit_type: '', 
+        benefit_note: '' 
+    });
   }
-  if (saved === 0) {
+
+  if (txns.length === 0) {
     var histMsg = document.getElementById('hist-msg');
     if (histMsg) histMsg.innerHTML = '<div class="status-msg sminfo">Tidak ada nominal yang diisi.</div>';
     return;
   }
-  saveAll(); renderTransactions(); calcAll();
-  var histMsg = document.getElementById('hist-msg');
-  if (histMsg) histMsg.innerHTML = '<div class="status-msg smok">✅ ' + saved + ' transaksi disimpan for ' + m + '/' + y + '!</div>';
-  setTimeout(function() { var el = document.getElementById('hist-msg'); if(el) el.innerHTML=''; }, 3000);
+
+  fetch('/api/transactions/batch', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    },
+    body: JSON.stringify({ transactions: txns })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    renderTransactions();
+    var histMsg = document.getElementById('hist-msg');
+    if (histMsg) histMsg.innerHTML = '<div class="status-msg smok">✅ ' + txns.length + ' transaksi disimpan for ' + m + '/' + y + '!</div>';
+    setTimeout(function() { var el = document.getElementById('hist-msg'); if(el) el.innerHTML=''; }, 3000);
+  })
+  .catch(function(e) { console.error('Error saving historical:', e); });
 }
 
 function toggleHistorical() {
@@ -932,7 +1019,7 @@ function renderCharts() {
   var cm = curM();
   var monthly = transactions.filter(function(t) { return t.date.startsWith(cm); });
   var expByCat = {};
-  monthly.filter(function(t){return t.type==='expense';}).forEach(function(t) { expByCat[t.cat] = (expByCat[t.cat]||0) + t.amount; });
+  monthly.filter(function(t){return t.type==='expense';}).forEach(function(t) { expByCat[t.category] = (expByCat[t.category]||0) + t.amount; });
   var eCats = Object.keys(expByCat), eVals = eCats.map(function(c){return expByCat[c];});
   var totalExp = eVals.reduce(function(a,b){return a+b;}, 0);
   var dExpTotal = document.getElementById('dnut-exp-total'); if(dExpTotal) dExpTotal.textContent = fmtS(totalExp||0);
@@ -1220,13 +1307,37 @@ function init() {
   var heroCanvas = document.getElementById('hero-canvas');
   if (heroCanvas) { heroGarden = new Garden(heroCanvas); heroGarden.setScore(65); }
 
+  // Net Worth Fetch & Listeners
+  fetch('/api/net-worth')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.netWorth) {
+        var nw = data.netWorth;
+        if (document.getElementById('nw-sav')) document.getElementById('nw-sav').value = nw.savings || 0;
+        if (document.getElementById('nw-em')) document.getElementById('nw-em').value = nw.emergency_fund || 0;
+        if (document.getElementById('nw-inv')) document.getElementById('nw-inv').value = nw.investments || 0;
+        if (document.getElementById('nw-oth')) document.getElementById('nw-oth').value = nw.other_assets || 0;
+        if (document.getElementById('nw-dbt')) document.getElementById('nw-dbt').value = nw.debt || 0;
+        calcNetWorth();
+        updateLevelDisplay();
+      }
+    });
+
   var nwIds = ['nw-sav','nw-em','nw-inv','nw-oth','nw-dbt'];
   nwIds.forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
-    try { var v = localStorage.getItem('plen_'+id); if(v) el.value = v; } catch(e) {}
     el.addEventListener('input', function() {
-      try { localStorage.setItem('plen_'+id, el.value); } catch(e) {}
+      calcNetWorth();
+      syncNetWorth();
     });
   });
+}
+
+// Automatically initialize based on which part of the app is loaded
+if (document.getElementById('app')) {
+    init();
+    appInitialized = true;
+} else if (document.getElementById('pin-screen')) {
+    initPinScreen();
 }

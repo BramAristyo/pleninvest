@@ -9,6 +9,16 @@ Route::middleware('auth')->group(function () {
     })->name('app.index');
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // Transactions
+    Route::get('/api/transactions', [\App\Http\Controllers\TransactionController::class, 'index']);
+    Route::post('/api/transactions', [\App\Http\Controllers\TransactionController::class, 'store']);
+    Route::post('/api/transactions/batch', [\App\Http\Controllers\TransactionController::class, 'storeBatch']);
+    Route::delete('/api/transactions/{id}', [\App\Http\Controllers\TransactionController::class, 'destroy']);
+
+    // Net Worth
+    Route::get('/api/net-worth', [\App\Http\Controllers\NetWorthController::class, 'show']);
+    Route::post('/api/net-worth', [\App\Http\Controllers\NetWorthController::class, 'update']);
 });
 
 Route::middleware('guest')->group(function () {

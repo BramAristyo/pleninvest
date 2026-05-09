@@ -22,4 +22,20 @@ class User extends Authenticatable
         'pin',
         'remember_token',
     ];
+
+    /**
+     * Get the transactions for the user.
+     */
+    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    /**
+     * Get the net worth entries for the user.
+     */
+    public function netWorths(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(NetWorth::class);
+    }
 }
