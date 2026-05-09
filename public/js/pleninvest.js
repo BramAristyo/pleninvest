@@ -57,21 +57,48 @@ function pinClear() {
 
 function handleFourDigits() {
   if (pinStep === 'enter') {
-    var saved = getPinFromStorage();
-    if (!saved) {
-      pinStep = 'create';
-      pinBuffer = '';
-      updatePinDots();
-      setLabel('Buat PIN baru — masukkan 4 angka pilihanmu');
-      return;
+    const usernameInput = document.getElementById('login-username');
+    const username = usernameInput ? usernameInput.value : '';
+    
+    if (!username) {
+        setMsg('Masukkan username', true);
+        pinBuffer = '';
+        updatePinDots();
+        return;
     }
-    if (pinBuffer === saved) {
-      unlockApp();
-    } else {
-      setMsg('PIN salah, coba lagi', true);
-      pinBuffer = '';
-      updatePinDots();
-    }
+
+    setMsg('Memverifikasi...', false);
+
+    fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify({
+            username: username,
+            pin: pinBuffer
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            setMsg(data.message, false);
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 500);
+        } else {
+            setMsg(data.message || 'PIN salah', true);
+            pinBuffer = '';
+            updatePinDots();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        setMsg('Terjadi kesalahan server', true);
+        pinBuffer = '';
+        updatePinDots();
+    });
   } else if (pinStep === 'create') {
     pinConfirmBuffer = pinBuffer;
     pinBuffer = '';
@@ -109,16 +136,14 @@ function unlockApp() {
 }
 
 function lockApp() {
-  pinBuffer = '';
-  pinStep = getPinFromStorage() ? 'enter' : 'create';
-  updatePinDots();
-  setMsg('');
-  if (pinStep === 'enter') setLabel('Masukkan PIN untuk masuk');
-  else setLabel('Buat PIN baru — masukkan 4 angka pilihanmu');
-  var pinScreen = document.getElementById('pin-screen');
-  if (pinScreen) pinScreen.style.display = 'flex';
-  var appDiv = document.getElementById('app');
-  if (appDiv) appDiv.style.display = 'none';
+  fetch('/logout', {
+    method: 'POST',
+    headers: {
+      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+    }
+  }).then(() => {
+    window.location.href = '/login';
+  });
 }
 
 function pinReset() {
