@@ -172,11 +172,7 @@ var gsUrl = '';
 
 function loadData() {
   try {
-    transactions = [];
-    reimburse = [];
-    assets = [];
-    insurance = [];
-    tunjangan = [];
+    // Note: Most data now fetched via API in init() and render functions
     cicilanEmas = JSON.parse(localStorage.getItem('plen_ce') || '[]');
     gsUrl = localStorage.getItem('plen_gs_url') || '';
   } catch(e) { console.warn('Error loading data:', e); }
@@ -217,7 +213,9 @@ var ASSET_COLORS = ['#7DAA89','#7BB8D4','#D4A843','#4A8C5C','#B5D4BE','#E8C5B0']
 var PALETTE = ['#7DAA89','#7BB8D4','#D4A843','#4A8C5C','#B5D4BE','#E89090','#E8C5B0','#4A8FA8'];
 
 function updateCategories() {
-  var type = document.getElementById('txn-type').value;
+  var typeEl = document.getElementById('txn-type');
+  if (!typeEl) return;
+  var type = typeEl.value;
   var cats = type === 'income' ? CAT_INCOME : CAT_EXPENSE;
   var sel = document.getElementById('txn-cat');
   if (sel) sel.innerHTML = cats.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
@@ -225,7 +223,8 @@ function updateCategories() {
 
 var benefitEl = document.getElementById('txn-benefit');
 if (benefitEl) benefitEl.addEventListener('change', function() {
-  document.getElementById('benefit-note-wrap').style.display = this.value ? 'block' : 'none';
+  var wrap = document.getElementById('benefit-note-wrap');
+  if (wrap) wrap.style.display = this.value ? 'block' : 'none';
 });
 
 // ——— MONTH NAV ———
@@ -346,8 +345,29 @@ function renderTransactions() {
       
       // Update Beranda stats
       updateBerandaStats();
+      
+      // Auto-fill health inputs
+      autoFillHealthInputs(stats);
     })
     .catch(function(e) { console.error('Error fetching transactions:', e); });
+}
+
+function autoFillHealthInputs(stats) {
+    var hInc = document.getElementById('h-inc'); if(hInc) hInc.value = stats.income;
+    var hExp = document.getElementById('h-exp'); if(hExp) hExp.value = stats.expense;
+    
+    var cm = curM();
+    var monthlyTabungan = transactions.filter(function(t) { 
+        return t.date.startsWith(cm) && t.category === 'Tabungan'; 
+    }).reduce(function(s, t) { return s + parseFloat(t.amount); }, 0);
+    var hSav = document.getElementById('h-sav'); if(hSav) hSav.value = monthlyTabungan;
+
+    var monthlyTth = transactions.filter(function(t) { 
+        return t.date.startsWith(cm) && t.category === 'Persepuluhan'; 
+    }).reduce(function(s, t) { return s + parseFloat(t.amount); }, 0);
+    var hTth = document.getElementById('h-tth'); if(hTth) hTth.value = monthlyTth;
+
+    calcHealth();
 }
 
 // ——— NET WORTH ———
@@ -905,6 +925,7 @@ function renderCicilanEmas() {
 function initHistYear() {
   var sel = document.getElementById('hist-year');
   if (!sel) return;
+  sel.innerHTML = '';
   for (var y = 2026; y >= 2000; y--) {
     var o = document.createElement('option');
     o.value = y; o.textContent = y;
@@ -914,6 +935,8 @@ function initHistYear() {
   var mSel = document.getElementById('hist-month');
   if (mSel) mSel.value = String(new Date().getMonth()+1).padStart(2,'0');
   populateHistCats();
+  var rows = document.getElementById('hist-rows');
+  if (rows) rows.innerHTML = '';
   addHistRow();
 }
 
@@ -980,7 +1003,7 @@ function saveHistorical() {
   .then(function(data) {
     renderTransactions();
     var histMsg = document.getElementById('hist-msg');
-    if (histMsg) histMsg.innerHTML = '<div class="status-msg smok">✅ ' + txns.length + ' transaksi disimpan for ' + m + '/' + y + '!</div>';
+    if (histMsg) histMsg.innerHTML = '<div class="status-msg smok">✅ ' + txns.length + ' transaksi disimpan untuk ' + m + '/' + y + '!</div>';
     setTimeout(function() { var el = document.getElementById('hist-msg'); if(el) el.innerHTML=''; }, 3000);
   })
   .catch(function(e) { console.error('Error saving historical:', e); });
@@ -998,39 +1021,8 @@ function toggleHistorical() {
 
 // ——— REAL-TIME PRICES ———
 function fetchAllPrices() {
-  // Manual price updates enabled, automatic fetching disabled.
-  console.log('fetchAllPrices is disabled. Use manual price updates.');
-}
-
-function updateAssetPrices(usdIdr) {
-  fetch('https://data-asg.goldprice.org/dbXRates/USD')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.items && data.items[0]) priceCache['XAU'] = data.items[0].xauPrice * usdIdr / 31.1;
-      fetchStockPrices();
-    }).catch(function() { fetchStockPrices(); });
-}
-
-function fetchStockPrices() {
-  var promises = assets.filter(function(a) { return a.ticker && a.type === 'saham'; }).map(function(a) {
-    var ticker = a.ticker.includes('.') ? a.ticker : a.ticker + '.JK';
-    return fetch('https://query1.finance.yahoo.com/v8/finance/chart/' + ticker)
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        if (data.chart && data.chart.result && data.chart.result[0]) {
-          a.currentPrice = data.chart.result[0].meta.regularMarketPrice;
-        }
-      }).catch(function() {});
-  });
-  Promise.all(promises).then(function() {
-    assets.forEach(function(a) {
-      if (a.type === 'emas' && priceCache['XAU']) a.currentPrice = priceCache['XAU'];
-      if (a.type === 'vallas' && priceCache[a.ticker]) a.currentPrice = priceCache[a.ticker];
-    });
-    saveAll(); renderAssets(); renderCicilanEmas();
-    var lu = document.getElementById('last-update');
-    if (lu) lu.textContent = new Date().toLocaleString('id-ID', {hour:'2-digit',minute:'2-digit'});
-  });
+  // Manual price updates enabled in UI
+  console.log('fetchAllPrices is disabled. Use manual price updates in the Diversifikasi tab.');
 }
 
 // ——— AI RECOMMENDATION ———
@@ -1044,7 +1036,7 @@ function getAIReco() {
   fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: 'Kamu adalah penasihat keuangan untuk Ricky Atmoko, calon pendeta GKI usia 25 tahun di Indonesia. Berikan saran diversifikasi berdasarkan portofolio: ' + JSON.stringify(portfolioSummary) + '. Berikan: ringkasan kondisi (1-2 kalimat), saran per aset (tahan/jual/tambah), rekomendasi diversifikasi ke depan, dan 1 kalimat penyemangat pastoral. Max 200 kata, bahasa Indonesia, bullet point for saran aset.' }] })
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, messages: [{ role: 'user', content: 'Kamu adalah penasihat keuangan untuk Ricky Atmoko, calon pendeta GKI usia 25 tahun di Indonesia. Berikan saran diversifikasi berdasarkan portofolio: ' + JSON.stringify(portfolioSummary) + '. Berikan: ringkasan kondisi (1-2 kalimat), saran per aset (tahan/jual/tambah), rekomendasi diversifikasi ke depan, dan 1 kalimat penyemangat pastoral. Max 200 kata, bahasa Indonesia, bullet point untuk saran aset.' }] })
   }).then(function(r) { return r.json(); })
     .then(function(data) {
       var text = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : 'Tidak bisa mendapatkan rekomendasi saat ini.';
@@ -1063,7 +1055,12 @@ function calcHealth() {
       return el ? (parseFloat(el.value) || 0) : 0; 
   }
   var inc=v('h-inc'), exp=v('h-exp'), sav=v('h-sav'), dbt=v('h-dbt'), em=v('h-em'), tth=v('h-tth');
-  if (!inc) return;
+  if (!inc) {
+      // If we have no income data, don't update garden score yet to avoid 'dead' garden 
+      // unless we specifically want to show level 0.
+      updateLevelDisplay();
+      return;
+  }
   var sr=sav/inc*100, dr=dbt/inc*100, emM=exp>0?em/exp:0, lr=exp/inc*100, tr=tth/inc*100;
   var sS=sr>=20?20:sr>=15?17:sr>=10?12:sr>=5?6:2;
   var dS=dr===0?20:dr<15?18:dr<30?12:dr<40?6:2;
@@ -1104,7 +1101,7 @@ function calcHealth() {
   var pbDbt = document.getElementById('pb-dbt');
   if (mvDbt && mpDbt && pbDbt) {
     mvDbt.textContent = Math.round(dr)+'%';
-    mpDbt.innerHTML = '<span class="pill pill-'+(dr<15?'good':dr<15?'warn':'bad')+'">'+(dr<15?'✓ Aman':dr<30?'△ Perhatikan':'↑ Tinggi')+'</span>';
+    mpDbt.innerHTML = '<span class="pill pill-'+(dr<15?'good':dr<30?'warn':'bad')+'">'+(dr<15?'✓ Aman':dr<30?'△ Perhatikan':'↑ Tinggi')+'</span>';
     pbDbt.style.width = Math.min(100, dr*2.5)+'%';
     pbDbt.className = 'prog-fill fill-'+(dr<15?'g':dr<30?'w':'b');
   }
@@ -1228,7 +1225,7 @@ function renderCharts() {
   var cm = curM();
   var monthly = transactions.filter(function(t) { return t.date.startsWith(cm); });
   var expByCat = {};
-  monthly.filter(function(t){return t.type==='expense';}).forEach(function(t) { expByCat[t.category] = (expByCat[t.category]||0) + t.amount; });
+  monthly.filter(function(t){return t.type==='expense';}).forEach(function(t) { expByCat[t.category] = (expByCat[t.category]||0) + parseFloat(t.amount); });
   var eCats = Object.keys(expByCat), eVals = eCats.map(function(c){return expByCat[c];});
   var totalExp = eVals.reduce(function(a,b){return a+b;}, 0);
   var dExpTotal = document.getElementById('dnut-exp-total'); if(dExpTotal) dExpTotal.textContent = fmtS(totalExp||0);
@@ -1347,44 +1344,91 @@ var Garden = function(canvas) {
 
 Garden.prototype.resize = function() {
   var dpr = window.devicePixelRatio || 1;
-  this.c.width = (this.c.offsetWidth || 400) * dpr;
-  this.c.height = (this.c.offsetHeight || 200) * dpr;
+  var rect = this.c.getBoundingClientRect();
+  var realW = rect.width || this.c.clientWidth || 400;
+  var realH = rect.height || this.c.clientHeight || 200;
+  
+  this.c.width = realW * dpr;
+  this.c.height = realH * dpr;
+  this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
   this.ctx.scale(dpr, dpr);
-  this.w = this.c.offsetWidth || 400;
-  this.h = this.c.offsetHeight || 200;
+  this.w = realW;
+  this.h = realH;
 };
 
-Garden.prototype.setScore = function(s) { this.score = s; };
+Garden.prototype.setScore = function(s) { 
+    if (isNaN(s)) s = 0;
+    this.score = s; 
+};
 
 Garden.prototype.addParticle = function() {
   for (var i=0;i<8;i++) {
-    this.particles.push({x:Math.random()*this.w,y:this.h*0.6,vx:(Math.random()-.5)*2,vy:-(Math.random()*3+1),life:1,size:Math.random()*4+2,color:'#D4A843'});
+    this.particles.push({
+        x: Math.random() * this.w,
+        y: this.h * 0.6,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -(Math.random() * 3 + 1),
+        life: 1,
+        size: Math.random() * 4 + 2,
+        color: '#D4A843'
+    });
   }
 };
 
 Garden.prototype.drawTree = function(x, baseY, treeH, r, score, idx) {
   var c = this.ctx, t = this.t;
+  if (isNaN(score)) score = 50; // Default to neutral if NaN
+  
+  // Trunk color
   c.fillStyle = '#6B4226';
-  c.fillRect(x - r*0.09, baseY - treeH*0.5, r*0.18, treeH*0.5);
+  
+  // Draw trunk - make it robust
+  var trunkW = Math.max(3, r * 0.2);
+  c.fillRect(x - trunkW/2, baseY - treeH * 0.8, trunkW, treeH * 0.8);
+  
   if (score < 20) {
-    c.strokeStyle='#5A4A2A'; c.lineWidth=2;
-    [[x,baseY-treeH*.5,x-r*.5,baseY-treeH*.8],[x,baseY-treeH*.5,x+r*.4,baseY-treeH*.75]].forEach(function(l){c.beginPath();c.moveTo(l[0],l[1]);c.lineTo(l[2],l[3]);c.stroke();});
+    // Dead trees/Bare branches - make them thicker and more visible
+    c.strokeStyle='#5A4A2A'; 
+    c.lineWidth = Math.max(2, r * 0.05);
+    var branchHeight = baseY - treeH * 0.6;
+    [[x, branchHeight, x - r * 0.6, branchHeight - r * 0.5],
+     [x, branchHeight - r * 0.3, x + r * 0.5, branchHeight - r * 0.6]].forEach(function(l){
+        c.beginPath();
+        c.moveTo(l[0], l[1]);
+        c.lineTo(l[2], l[3]);
+        c.stroke();
+    });
   } else {
-    var sway = Math.sin(t*.8+idx)*r*.02;
-    var top = baseY - treeH;
-    var leafColor = score>=80?'#3A8A3A':score>=60?'#4A9A4A':score>=40?'#6AAA4A':'#8A9A3A';
-    var grad = c.createRadialGradient(x+sway,top+r*.3,r*.1,x+sway,top+r*.3,r);
-    grad.addColorStop(0, score>=60?'#5AB85A':'#7A9A4A');
+    var sway = Math.sin(t * 0.8 + idx) * r * 0.02;
+    var topY = baseY - treeH;
+    var canopyCenterY = topY + r * 0.35;
+    
+    // Leaf color logic
+    var leafColor;
+    if (score >= 80) leafColor = '#1E4D2B';
+    else if (score >= 60) leafColor = '#2D6A3F';
+    else if (score >= 40) leafColor = '#7DAA89';
+    else leafColor = '#D4A843'; // Yellowish/Stressed
+
+    var grad = c.createRadialGradient(x + sway, canopyCenterY, r * 0.1, x + sway, canopyCenterY, r);
+    grad.addColorStop(0, score >= 60 ? '#4A8C5C' : '#E8C5B0');
     grad.addColorStop(1, leafColor);
+    
     c.fillStyle = grad;
-    c.beginPath(); c.arc(x+sway, top+r*.35, r, 0, Math.PI*2); c.fill();
+    c.beginPath(); 
+    c.arc(x + sway, canopyCenterY, r, 0, Math.PI * 2); 
+    c.fill();
+    
+    // Blooming flowers
     if (score >= 75) {
-      for (var fi=0;fi<5;fi++) {
-        var angle = (fi/5)*Math.PI*2 + t*.5;
-        var fx = x+sway+Math.cos(angle)*r*.6*Math.random();
-        var fy = top+r*.35+Math.sin(angle)*r*.4*Math.random();
-        c.fillStyle = ['#FFB6C1','#FFD700','#FF8C69'][fi%3];
-        c.beginPath(); c.arc(fx,fy,3,0,Math.PI*2); c.fill();
+      for (var fi = 0; fi < 5; fi++) {
+        var angle = (fi / 5) * Math.PI * 2 + t * 0.5;
+        var fx = x + sway + Math.cos(angle) * r * 0.6;
+        var fy = canopyCenterY + Math.sin(angle) * r * 0.5;
+        c.fillStyle = ['#FFB6C1', '#FFD700', '#FF8C69'][fi % 3];
+        c.beginPath(); 
+        c.arc(fx, fy, 2.5, 0, Math.PI * 2); 
+        c.fill();
       }
     }
   }
@@ -1392,24 +1436,80 @@ Garden.prototype.drawTree = function(x, baseY, treeH, r, score, idx) {
 
 Garden.prototype.draw = function() {
   var c = this.ctx, w = this.w, h = this.h, t = this.t, score = this.score;
-  c.clearRect(0,0,w,h);
-  var skyGrad = c.createLinearGradient(0,0,0,h*.65);
-  skyGrad.addColorStop(0, score>=50?'#B8DDF0':'#9EB0C0');
-  skyGrad.addColorStop(1, score>=50?'#D8EEF7':'#B8C8D8');
-  c.fillStyle=skyGrad; c.fillRect(0,0,w,h*.65);
-  c.fillStyle='#5A8A3A'; c.fillRect(0,h*.62,w,h*.38);
-  var lakeGrad=c.createLinearGradient(0,h*.6,0,h*.75);
-  lakeGrad.addColorStop(0,score>=50?'#7BB8D4':'#8AA0B0');
-  lakeGrad.addColorStop(1,score>=50?'#5A9EB8':'#6A8898');
-  c.fillStyle=lakeGrad; c.beginPath(); c.ellipse(w*.5,h*.7,w*.3,h*.07,0,0,Math.PI*2); c.fill();
-  c.globalAlpha=.25; c.strokeStyle='#fff'; c.lineWidth=1;
-  c.beginPath(); c.ellipse(w*.5,h*.7,w*.12+Math.sin(t*.8)*2,h*.02,0,0,Math.PI*2); c.stroke();
-  c.globalAlpha=1;
-  var trees=[{x:w*.1,y:h*.63,h:h*.3,r:h*.13},{x:w*.32,y:h*.64,h:h*.26,r:h*.11},{x:w*.7,y:h*.63,h:h*.28,r:h*.12},{x:w*.88,y:h*.65,h:h*.2,r:h*.08}];
-  var self=this;
-  trees.forEach(function(tr,i){self.drawTree(tr.x,tr.y,tr.h,tr.r,score,i);});
-  var self2=this;
-  this.particles=this.particles.filter(function(p){p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.life-=.015;if(p.life<=0)return false;c.globalAlpha=p.life;c.fillStyle=p.color;c.beginPath();c.arc(p.x,p.y,p.size,0,Math.PI*2);c.fill();c.globalAlpha=1;return true;});
+  if (!w || !h) {
+    this.resize();
+    return;
+  }
+  
+  c.clearRect(0, 0, w, h);
+  
+  // Sky Gradient
+  var skyGrad = c.createLinearGradient(0, 0, 0, h * 0.65);
+  if (score >= 50) {
+      skyGrad.addColorStop(0, '#B8DDF0');
+      skyGrad.addColorStop(1, '#D8EEF7');
+  } else {
+      skyGrad.addColorStop(0, '#9EB0C0');
+      skyGrad.addColorStop(1, '#B8C8D8');
+  }
+  c.fillStyle = skyGrad; 
+  c.fillRect(0, 0, w, h * 0.65);
+  
+  // Ground
+  c.fillStyle = score >= 50 ? '#5A8A3A' : '#7A7A5A'; 
+  c.fillRect(0, h * 0.62, w, h * 0.38);
+  
+  // Lake
+  var lakeGrad = c.createLinearGradient(0, h * 0.6, 0, h * 0.75);
+  if (score >= 50) {
+      lakeGrad.addColorStop(0, '#7BB8D4');
+      lakeGrad.addColorStop(1, '#5A9EB8');
+  } else {
+      lakeGrad.addColorStop(0, '#8AA0B0');
+      lakeGrad.addColorStop(1, '#6A8898');
+  }
+  c.fillStyle = lakeGrad; 
+  c.beginPath(); 
+  c.ellipse(w * 0.5, h * 0.7, w * 0.3, h * 0.07, 0, 0, Math.PI * 2); 
+  c.fill();
+  
+  // Lake ripples
+  c.globalAlpha = 0.25; 
+  c.strokeStyle = '#fff'; 
+  c.lineWidth = 1;
+  c.beginPath(); 
+  c.ellipse(w * 0.5, h * 0.7, w * 0.12 + Math.sin(t * 0.8) * 5, h * 0.02, 0, 0, Math.PI * 2); 
+  c.stroke();
+  c.globalAlpha = 1;
+  
+  // Trees
+  var treeConfigs = [
+    {x: w * 0.15, y: h * 0.63, h: h * 0.35, r: h * 0.15},
+    {x: w * 0.35, y: h * 0.64, h: h * 0.28, r: h * 0.12},
+    {x: w * 0.65, y: h * 0.63, h: h * 0.32, r: h * 0.14},
+    {x: w * 0.85, y: h * 0.65, h: h * 0.22, r: h * 0.10}
+  ];
+  
+  var self = this;
+  treeConfigs.forEach(function(tr, i) {
+    self.drawTree(tr.x, tr.y, tr.h, tr.r, score, i);
+  });
+  
+  // Particles
+  this.particles = this.particles.filter(function(p) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= 0.015;
+    if (p.life <= 0) return false;
+    c.globalAlpha = p.life;
+    c.fillStyle = p.color;
+    c.beginPath();
+    c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    c.fill();
+    c.globalAlpha = 1;
+    return true;
+  });
 };
 
 Garden.prototype.loop = function() {
@@ -1496,7 +1596,10 @@ function switchTab(name, btn) {
   else { var qb = document.querySelector('[data-tab="'+name+'"]'); if(qb) qb.classList.add('active'); }
   if (name==='grafik') setTimeout(renderCharts, 80);
   if (name==='kesehatan') setTimeout(renderHealthCharts, 80);
-  if (name==='beranda') updateBerandaStats();
+  if (name==='beranda') {
+      updateBerandaStats();
+      if (garden) garden.resize();
+  }
 }
 
 // ——— INIT ———
@@ -1527,8 +1630,17 @@ function init() {
         if (document.getElementById('nw-inv')) document.getElementById('nw-inv').value = nw.investments || 0;
         if (document.getElementById('nw-oth')) document.getElementById('nw-oth').value = nw.other_assets || 0;
         if (document.getElementById('nw-dbt')) document.getElementById('nw-dbt').value = nw.debt || 0;
+        
+        // Also fill health emergency fund & debt
+        if (document.getElementById('h-em')) document.getElementById('h-em').value = nw.emergency_fund || 0;
+        // h-dbt in health is usually monthly, but we fill total debt as fallback
+        if (document.getElementById('h-dbt') && !document.getElementById('h-dbt').value) {
+            document.getElementById('h-dbt').value = nw.debt || 0;
+        }
+
         calcNetWorth();
         updateLevelDisplay();
+        calcHealth();
       }
     });
 
@@ -1539,6 +1651,12 @@ function init() {
     el.addEventListener('input', function() {
       calcNetWorth();
       syncNetWorth();
+      
+      // Update health tab as well
+      if (id === 'nw-em') {
+          var hEm = document.getElementById('h-em');
+          if (hEm) { hEm.value = el.value; calcHealth(); }
+      }
     });
   });
 }
