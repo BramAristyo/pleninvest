@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "mysql-dev": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@f4ww4z/mcp-mysql-server",
+                "mysql://root:root@mysql:3306/db_pleninvest_development"
+            ]
+        }
+    }
+}
