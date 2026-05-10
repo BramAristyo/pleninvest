@@ -1,58 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Pleninvest
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Overview
 
-## About Laravel
+Pleninvest is a comprehensive financial management and investment tracking system designed to provide users with a centralized platform for monitoring their financial health. The application facilitates the tracking of net worth, investment portfolios, insurance policies, and reimbursements through a streamlined, data-driven interface.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Architecture
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+The project follows a modern monolithic architecture with a clear separation between the backend service layer and the interactive frontend presentation.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Backend
 
-## Learning Laravel
+Built on the **Laravel Framework**, the backend serves as the core engine for:
+- **Authentication**: A secure PIN-based authentication system.
+- **Data Persistence**: Leveraging Eloquent ORM for managing complex financial data models.
+- **RESTful API**: Exposing a consistent interface for the frontend to consume.
+- **Reporting**: Integration with Excel for generating comprehensive financial exports.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Frontend
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+The frontend is designed for high performance and responsiveness:
+- **Template Engine**: Utilizes Laravel Blade for structural components and initial page rendering.
+- **Interactive Logic**: Driven by Vanilla JavaScript to provide a Single Page Application (SPA) experience without the complexity of external frameworks.
+- **Styling**: Modular CSS architecture for a professional and consistent user interface.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Key Features
 
-## Agentic Development
+- **Net Worth Tracking**: Real-time aggregation of assets and liabilities to monitor overall financial growth.
+- **Investment Management**: Comprehensive tools for tracking diverse investment portfolios and market valuations.
+- **Transaction Processing**: Detailed logging, categorization, and batch processing of financial transactions.
+- **Insurance and Benefits**: Centralized repository for managing policy details and employer-provided benefits.
+- **Reimbursement System**: Workflow for tracking and managing the status of financial reimbursements.
+- **Financial Exports**: Exporting of detailed financial data to Excel formats for offline analysis and record-keeping.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Tech Stack
 
-```bash
-composer require laravel/boost --dev
+- **PHP 8.3+**
+- **Laravel 13.x**
+- **Vanilla JavaScript**
+- **SQLite / MySQL**
+- **Vite Asset Bundler**
+- **Maatwebsite/Laravel-Excel**
 
-php artisan boost:install
-```
+## Getting Started
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### Prerequisites
 
-## Contributing
+- PHP 8.3 or higher
+- Composer
+- Node.js and NPM
+- SQLite (default) or MySQL
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Installation
 
-## Code of Conduct
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd pleninvest
+    ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+2.  **Run the setup script:**
+    The project includes a comprehensive setup command defined in `composer.json`.
+    ```bash
+    composer run setup
+    ```
+    This script will:
+    - Install PHP dependencies.
+    - Create the `.env` file from `.env.example`.
+    - Generate the application key.
+    - Run database migrations.
+    - Install NPM packages and build assets.
 
-## Security Vulnerabilities
+3.  **Start the development environment:**
+    ```bash
+    npm run dev
+    ```
+    This command concurrently runs the Laravel development server, Vite, and the queue worker.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Project Structure
+
+- `app/Http/Controllers`: Backend logic and API endpoint handlers.
+- `app/Models`: Database schemas and Eloquent relationships.
+- `database/migrations`: Version control for the database schema.
+- `resources/views`: Blade templates for the application shell.
+- `public/js/pleninvest.js`: Core frontend application logic.
+- `public/css/pleninvest.css`: Application-specific styling.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project is licensed under the MIT License.
